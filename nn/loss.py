@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def compute_softmax(y_pred):
+def _compute_softmax(y_pred):
     y_pred_copy = y_pred - np.max(y_pred, axis=1)
 
     return np.exp(y_pred_copy) / np.sum(np.exp(y_pred))
@@ -10,6 +10,9 @@ def compute_softmax(y_pred):
 class CrossEntropyLoss:
 
     def __call__(self, y_pred, y_true):
-        softmax = compute_softmax(y_pred)
+        softmax = _compute_softmax(y_pred)
 
-        return -np.sum(y_true * np.log(softmax), axis=1)
+        loss = -np.sum(y_true * np.log(softmax), axis=1)
+        grad = y_pred - softmax
+
+        return loss, grad
