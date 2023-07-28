@@ -26,8 +26,8 @@ class NnLayer(Layer):
 
 class Linear(NnLayer):
     def __init__(self, n_input, n_output):
-        self.W = Value(n_input, n_output)
-        self.B = Value(1, n_output)
+        self.W = Value(0.001 * np.random.randn(n_input, n_output))
+        self.B = Value(0.001 * np.random.randn(1, n_output))
 
         self.X = None
 
@@ -38,9 +38,9 @@ class Linear(NnLayer):
 
     def backward(self, d_out):
         self.W.grad = np.dot(self.X.T, d_out)
-        self.B.grad = np.sum(d_out, axis=1)
+        self.B.grad = np.reshape(np.sum(d_out, axis=0), (1, -1))
 
-        d_pred = np.dot(self.W.data, d_out.T)
+        d_pred = np.dot(d_out, self.W.data.T)
 
         return d_pred
 

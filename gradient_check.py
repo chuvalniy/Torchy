@@ -1,6 +1,6 @@
 import numpy as np
 
-from layer import Layer
+from layer import Layer, NnLayer
 
 
 class GradientCheck:
@@ -52,3 +52,24 @@ class GradientCheck:
             return loss, grad
 
         return GradientCheck.check_gradient(helper_func, x, delta, tol)
+
+    @staticmethod
+    def check_layer_param_gradient(layer: NnLayer, X, param_name, delta=1e-5, tol=1e-4):
+        param = layer.params()[param_name]
+        initial_w = param.data
+
+        output = layer.forward(X)
+        output_w = np.random.randn(*output.shape)
+
+        def helper(w):
+            param.data = w
+            output = layer.forward(X)
+            loss = np.sum(output * output_w)
+            d_out = np.ones_like(output) * output_w
+            layer.backward(d_out)
+            grad = param.grad
+
+            return loss, grad
+
+        return GradientCheck.check_gradient(helper, initial_w, delta, tol)
+
