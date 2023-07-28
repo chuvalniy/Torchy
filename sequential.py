@@ -1,5 +1,7 @@
-from layer import Module
+from layer import Layer, NnLayer
 import copy
+
+from value import Value
 
 
 class Sequential:
@@ -7,7 +9,7 @@ class Sequential:
         self._layers = []
 
         for arg in args:
-            if not isinstance(arg, Module):
+            if not isinstance(arg, Layer):
                 raise Exception("Invalid argument for layer")
 
             self._layers.append(arg)
@@ -21,3 +23,13 @@ class Sequential:
 
     def predict(self, X):
         pass
+
+    def params(self) -> dict[str, Value]:
+        d = {}
+
+        for idx, layer in enumerate(self._layers):
+            if isinstance(layer, NnLayer):
+                for param_name, param in layer.params().items():
+                    d[f"{param_name}_{idx}"] = param
+
+        return d

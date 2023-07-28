@@ -4,7 +4,7 @@ import copy
 from abc import ABC
 
 
-class Module(ABC):
+class Layer(ABC):
 
     def backward(self, d_out):
         pass
@@ -16,15 +16,15 @@ class Module(ABC):
         return self.forward(X)
 
 
-class NnModule(Module):
+class NnLayer(Layer):
     def zero_grad(self):
         pass
 
-    def params(self):
+    def params(self) -> dict[str, Value]:
         pass
 
 
-class Linear(NnModule):
+class Linear(NnLayer):
     def __init__(self, n_input, n_output):
         self.W = Value(n_input, n_output)
         self.B = Value(1, n_output)
@@ -48,7 +48,7 @@ class Linear(NnModule):
         for _, value in self.params().items():
             value.grad = 0.0
 
-    def params(self):
+    def params(self) -> dict[str, Value]:
         d = {
             "W": self.W,
             "B": self.B
@@ -57,12 +57,13 @@ class Linear(NnModule):
         return d
 
 
-class ReLU(Module):
+class ReLU(Layer):
     def __init__(self):
-        pass
+        self._mask = None
 
-    def __call__(self, X):
-        return X > 0
+    def forward(self, X):
+        self._mask = X > 0
+        return np.where(self._mask, X, 0)
 
     def backward(self, d_out):
-        pass
+        return d_out * self._mask
