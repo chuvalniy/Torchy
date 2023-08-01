@@ -12,3 +12,4 @@ Built from scratch neural network library using only Numpy and PyTorch as refere
 2. Rebalance weights and biases initialization (currently inits as normal distribution from 0 to 1)
 3. Convolution Layer (+padding, stride)
 4. Activation functions (tanh, leaky relu)
+5. Adam, RMSProp optimizations
