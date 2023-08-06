@@ -28,7 +28,6 @@ class Linear(NnLayer):
     def __init__(self, n_input, n_output):
         self.W = Value(0.001 * np.random.randn(n_input, n_output))
         self.B = Value(0.001 * np.random.randn(1, n_output))
-
         self.X = None
 
     def forward(self, X):
@@ -38,7 +37,9 @@ class Linear(NnLayer):
 
     def backward(self, d_out):
         self.W.grad = np.dot(self.X.T, d_out)
-        self.B.grad = np.reshape(np.sum(d_out, axis=0), (1, -1))
+
+        E = np.ones(shape=(1, self.X.shape[0]))
+        self.B.grad = E.dot(d_out)
 
         d_pred = np.dot(d_out, self.W.data.T)
 

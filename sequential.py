@@ -5,7 +5,7 @@ from value import Value
 
 
 class Sequential:
-    def __init__(self, *args):
+    def __init__(self, *args: Layer):
         self._layers = []
 
         for arg in args:
@@ -20,6 +20,11 @@ class Sequential:
             copy_X = layer(copy_X)
 
         return copy_X
+
+    def backward(self, d_out):
+        d_out_copy = copy.deepcopy(d_out)
+        for layer in reversed(self._layers):
+            d_out_copy = layer.backward(d_out_copy)
 
     def predict(self, X):
         pass
