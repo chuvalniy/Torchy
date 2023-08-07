@@ -6,6 +6,7 @@ import layer
 import loss
 import optim
 import sequential
+import scheduler
 
 if __name__ == "__main__":
     np.random.seed(42)
@@ -19,9 +20,10 @@ if __name__ == "__main__":
     )
 
     criterion = loss.CrossEntropyLoss()
-    optimizer = optim.Adam(model.params(), lr=1e-1, weight_decay=1e-5)
+    optimizer = optim.Adam(model.params(), lr=1e-3, weight_decay=1e-5)
+    scheduler = scheduler.ReduceLROnPlateau(optimizer)
 
-    for epoch in range(500):
+    for epoch in range(100):
         predictions = model(X)
         loss, grad = criterion(predictions, y)
 
@@ -32,4 +34,6 @@ if __name__ == "__main__":
         indices = np.argmax(predictions, axis=1)
         accuracy = (np.sum(indices == y)) / y.shape[0]
 
-        print(f"Loss: {loss}, Accuracy: {accuracy}")
+        print(f"Epoch: {epoch}, Loss: {loss}, Accuracy: {accuracy}, Learning rate: {optimizer.lr}")
+
+        scheduler.step(loss)
