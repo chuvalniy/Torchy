@@ -13,6 +13,9 @@ Built from scratch neural network library using only Numpy and PyTorch as refere
    - Adagrad
 3. Loss Functions
    - Cross-entropy Loss + Softmax
+4. Schedulers
+   - StepLR;
+   - ReduceLROnPlateau
 
 ## TO DO (Until 10th august)
 1. BatchNorm1d, BatchNorm2d
