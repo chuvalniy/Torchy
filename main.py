@@ -19,9 +19,9 @@ if __name__ == "__main__":
     )
 
     criterion = loss.CrossEntropyLoss()
-    optimizer = optim.SGD(model.params(), lr=1e-3, weight_decay=1e-4)
+    optimizer = optim.Adam(model.params(), lr=1e-1, weight_decay=1e-5)
 
-    for epoch in range(50):
+    for epoch in range(500):
         predictions = model(X)
         loss, grad = criterion(predictions, y)
 
@@ -32,4 +32,4 @@ if __name__ == "__main__":
         indices = np.argmax(predictions, axis=1)
         accuracy = (np.sum(indices == y)) / y.shape[0]
 
-        print(loss)
+        print(f"Loss: {loss}, Accuracy: {accuracy}")
