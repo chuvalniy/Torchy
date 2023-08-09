@@ -17,7 +17,8 @@ Built from scratch neural network library using only Numpy and PyTorch as refere
    - StepLR;
    - ReduceLROnPlateau
 
-## TO DO (Until 10th august)
+## TO DO (MVP)
 1. BatchNorm1d, BatchNorm2d
+2. Dataloader and Dataset logic
 3. Convolution Layer (+padding, stride)
 4. Activation functions (tanh, leaky relu)
