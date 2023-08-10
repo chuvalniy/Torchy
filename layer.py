@@ -1,7 +1,9 @@
-import numpy as np
-from value import Value
 import copy
 from abc import ABC
+
+import numpy as np
+
+from value import Value
 
 
 class Layer(ABC):
@@ -68,3 +70,46 @@ class ReLU(Layer):
 
     def backward(self, d_out):
         return d_out * self._mask
+
+
+class BatchNorm1d(NnLayer):
+    def __init__(self, n_output, eps=1e-5):
+        self.out = None
+        self.X_norm = None
+        self.X_var = None
+        self.X_mean = None
+        self.X = None
+        self.eps = eps
+        self.gamma = Value(np.ones(n_output))
+        self.beta = Value(np.zeros(n_output))
+
+    def forward(self, X):
+        self.X = X.copy()
+
+        self.X_mean = np.mean(X, axis=0, keepdims=True)
+        self.X_var = np.var(X, axis=0, keepdims=True)
+        self.X_norm = (X - self.X_mean) / np.sqrt(self.X_var + self.eps)
+
+        self.out = self.gamma.data * self.X_norm + self.beta.data
+        return self.out
+
+    def backward(self, d_out):
+        self.gamma.grad = (self.X_norm * d_out).sum(axis=0)
+        self.beta.grad = d_out.sum(0)
+
+        batch_size = self.X.shape[0]
+
+        sqrt_var_eps = np.sqrt(self.X_var + self.eps)
+        dxhat = d_out * self.gamma.data
+        dvar = np.sum(dxhat * (self.X - self.X_mean), axis=0) * (-1 / 2) * (self.X_var + self.eps) ** (-3 / 2)
+        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self.X - self.X_mean, axis=0)
+        dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self.X - self.X_mean) + dmu / batch_size
+        return dx
+
+    def params(self) -> dict[str, Value]:
+        d = {
+            "gamma": self.gamma,
+            "beta": self.beta
+        }
+
+        return d

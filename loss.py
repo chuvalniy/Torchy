@@ -18,6 +18,7 @@ class CrossEntropyLoss:
         logits = compute_softmax(y_pred)
 
         loss = -np.sum(y_true_one_hot * np.log(logits))
-        grad = logits - y_true_one_hot
+
+        grad = (logits - y_true_one_hot) / batch_size
 
         return loss, grad
