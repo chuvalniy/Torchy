@@ -28,8 +28,8 @@ class NnLayer(Layer):
 
 class Linear(NnLayer):
     def __init__(self, n_input, n_output):
-        self.W = Value(np.sqrt(2) / np.sqrt(n_input) * np.random.normal(size=(n_input, n_output)))
-        self.B = Value(1e-3 * np.random.normal(size=(1, n_output)))
+        self.W = Value(0.001 * np.random.randn(n_input, n_output))  # TODO
+        self.B = Value(0.001 * np.random.randn(1, n_output))  # TODO
         self.X = None
 
     def forward(self, X):
@@ -74,11 +74,11 @@ class ReLU(Layer):
 
 class BatchNorm1d(NnLayer):
     def __init__(self, n_output, eps=1e-5):
-        self.out = None
-        self.X_norm = None
-        self.X_var = None
-        self.X_mean = None
-        self.X = None
+        self.out = None  # TODO
+        self.X_norm = None  # TODO
+        self.X_var = None  # TODO
+        self.X_mean = None  # TODO
+        self.X = None  # TODO
         self.eps = eps
         self.gamma = Value(np.ones(n_output))
         self.beta = Value(np.zeros(n_output))
@@ -102,7 +102,8 @@ class BatchNorm1d(NnLayer):
         sqrt_var_eps = np.sqrt(self.X_var + self.eps)
         dxhat = d_out * self.gamma.data
         dvar = np.sum(dxhat * (self.X - self.X_mean), axis=0) * (-1 / 2) * (self.X_var + self.eps) ** (-3 / 2)
-        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self.X - self.X_mean, axis=0)
+        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self.X - self.X_mean,
+                                                                                              axis=0)
         dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self.X - self.X_mean) + dmu / batch_size
         return dx
 

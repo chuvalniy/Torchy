@@ -1,5 +1,7 @@
-import numpy as np
 import copy
+
+import numpy as np
+
 import sequential
 from layer import Layer, NnLayer
 from loss import CrossEntropyLoss
@@ -82,16 +84,17 @@ class GradientCheck:
 
         params = model.params()
 
-        criterion = CrossEntropyLoss()
         optimizer = SGD(params)
 
         for param_key in params:
             print("Checking gradient for %s" % param_key)
             param = params[param_key]
             initial_w = param.data
+            criterion = CrossEntropyLoss()
 
             def helper_func(w):
-                param.value = w
+                param.data = w
+
                 optimizer.zero_grad()
 
                 preds = model(X)
@@ -99,7 +102,6 @@ class GradientCheck:
 
                 model.backward(loss_grad)
                 grad = copy.deepcopy(param.grad)
-                print(loss)
                 return loss, grad
 
             if not GradientCheck.check_gradient(helper_func, initial_w, delta, tol):
