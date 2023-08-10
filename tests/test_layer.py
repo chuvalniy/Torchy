@@ -1,8 +1,9 @@
 import numpy as np
+from sklearn.datasets import make_classification
 
 from layer import Linear, ReLU, BatchNorm1d
 from tests.gradient_check import GradientCheck
-from sklearn.datasets import make_classification
+
 
 def test_linear():
     X = np.array([[1, -2, 3],

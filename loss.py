@@ -12,9 +12,7 @@ class CrossEntropyLoss:
         batch_size = y_pred.shape[0]
         num_classes = y_pred.shape[1]
 
-        y_true_one_hot = np.zeros((batch_size, num_classes))
-        y_true_one_hot[np.arange(batch_size), y_true] = 1
-
+        y_true_one_hot = np.identity(num_classes)[y_true.reshape(-1)]
         logits = compute_softmax(y_pred)
 
         loss = -np.sum(y_true_one_hot * np.log(logits))
