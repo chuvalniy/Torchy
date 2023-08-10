@@ -84,7 +84,7 @@ class BatchNorm1d(NnLayer):
         self.beta = Value(np.zeros(n_output))
 
     def forward(self, X):
-        self.X = X.copy()
+        self.X = copy.deepcopy(X)
 
         self.X_mean = np.mean(X, axis=0, keepdims=True)
         self.X_var = np.var(X, axis=0, keepdims=True)
