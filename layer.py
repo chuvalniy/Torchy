@@ -60,6 +60,56 @@ class Linear(NnLayer):
         return d
 
 
+class Conv2d(NnLayer):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, padding: int = 0):
+        self.W = Value(np.random.randn(out_channels, in_channels, kernel_size, kernel_size))  # TODO
+        self.B = Value(np.zeros(out_channels))  # TODO
+        self.X = None
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+
+    def forward(self, X):
+        self.X = X
+        batch_size, in_channels, height, width = X.shape
+
+        out_height = height - self.kernel_size // self.stride + 1
+        out_width = width - self.kernel_size // self.stride + 1
+
+        W_flatten = np.reshape(self.W.data, (-1, self.out_channels))
+
+        out = np.zeros(shape=(batch_size, self.out_channels, out_height, out_width))
+        for y in range(out_height):
+            for x in range(out_width):
+                i_region = X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
+                i_region_flatten = np.reshape(i_region, (batch_size, -1))
+                pixel = np.dot(i_region_flatten, W_flatten) + self.B.data
+                out[:, :, y, x] = pixel
+
+        return out
+
+    def backward(self, d_out):
+        batch_size, in_channels, height, width = self.X.shape
+        _, out_channels, out_height, out_width = d_out.shape
+
+        d_pred = np.zeros(shape=(batch_size, in_channels, height, width))
+        for y in range(out_height):
+            for x in range(out_width):
+                pass
+
+
+    def params(self) -> dict[str, Value]:
+        d = {
+            "W": self.W,
+            "B": self.B
+        }
+
+        return d
+
+
 class ReLU(Layer):
     def __init__(self):
         self._mask = None
