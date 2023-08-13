@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.datasets import make_classification
 
-from layer import Linear, ReLU, BatchNorm1d
+from layer import Linear, ReLU, BatchNorm1d, Conv2d
 from tests.gradient_check import GradientCheck
 
 
@@ -13,6 +13,27 @@ def test_linear():
     assert GradientCheck.check_layer_gradient(Linear(3, 4), X)
     assert GradientCheck.check_layer_param_gradient(Linear(3, 4), X, 'W')
     assert GradientCheck.check_layer_param_gradient(Linear(3, 4), X, 'B')
+
+
+def test_conv2d():
+    X = np.random.randn(2, 2, 7, 7)
+
+    layer = Conv2d(in_channels=2, out_channels=2, kernel_size=2, padding=0)
+    result = layer.forward(X)
+    d_input = layer.backward(np.ones_like(result))
+    assert d_input.shape == X.shape
+
+    layer = Conv2d(in_channels=2, out_channels=2, kernel_size=2, padding=0)
+    assert GradientCheck.check_layer_gradient(layer, X)
+
+    layer = Conv2d(in_channels=2, out_channels=2, kernel_size=2, padding=0)
+    assert GradientCheck.check_layer_param_gradient(layer, X, 'W')
+
+    layer = Conv2d(in_channels=2, out_channels=2, kernel_size=2, padding=0)
+    assert GradientCheck.check_layer_param_gradient(layer, X, 'B')
+
+
+
 
 
 def test_relu():
