@@ -7,6 +7,7 @@ import sequential
 from loss import CrossEntropyLoss
 from optim import MomentumSGD
 from scheduler import ReduceLROnPlateau
+from tests.test_layer import test_conv2d, test_conv2_with_padding, test_maxpool2d
 
 
 def train_model():
@@ -41,15 +42,5 @@ def train_model():
 
 if __name__ == "__main__":
     np.random.seed(42)
-
-    X = np.random.randn(2, 1, 7, 7)
-
-    layer = layer.Conv2d(in_channels=1, out_channels=2, kernel_size=3, padding=0)
-    print("Shape of W", layer.W.data.shape)
-    layer.W.data = np.zeros_like(layer.W.data)
-    layer.W.data[0, 0, 0, 0] = 1.0
-    layer.B.data = np.ones_like(layer.B.data)
-    out = layer.forward(X)
-    d_out = out * 1e-3
-    grad = layer.backward(d_out)
+    test_maxpool2d()
 
