@@ -42,9 +42,9 @@ def train_model():
 if __name__ == "__main__":
     np.random.seed(42)
 
-    X = np.random.randn(2, 2, 2, 2)
+    X = np.random.randn(2, 1, 7, 7)
 
-    layer = layer.Conv2d(in_channels=2, out_channels=2, kernel_size=2, padding=0)
+    layer = layer.Conv2d(in_channels=1, out_channels=2, kernel_size=3, padding=0)
     print("Shape of W", layer.W.data.shape)
     layer.W.data = np.zeros_like(layer.W.data)
     layer.W.data[0, 0, 0, 0] = 1.0

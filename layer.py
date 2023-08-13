@@ -66,6 +66,9 @@ class Conv2d(NnLayer):
         self.B = Value(np.zeros(out_channels))  # TODO
         self.X = None
 
+        self._W_flatten = np.reshape(self.W.data, (-1, out_channels))
+        self._W_flatten_grad = np.reshape(self.W.grad, (-1, out_channels))
+
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -79,15 +82,13 @@ class Conv2d(NnLayer):
         out_height = height - self.kernel_size // self.stride + 1
         out_width = width - self.kernel_size // self.stride + 1
 
-        W_flatten = np.reshape(self.W.data, (-1, self.out_channels))
-
         out = np.zeros(shape=(batch_size, self.out_channels, out_height, out_width))
         for y in range(out_height):
             for x in range(out_width):
-                i_region = X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                i_region_flatten = np.reshape(i_region, (batch_size, -1))
-                pixel = np.dot(i_region_flatten, W_flatten) + self.B.data
-                out[:, :, y, x] = pixel
+                input_region = X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
+                input_region_flatten = np.reshape(input_region, (batch_size, -1))
+                output_feature_map = np.dot(input_region_flatten, self._W_flatten) + self.B.data
+                out[:, :, y, x] = output_feature_map
 
         return out
 
@@ -98,8 +99,17 @@ class Conv2d(NnLayer):
         d_pred = np.zeros(shape=(batch_size, in_channels, height, width))
         for y in range(out_height):
             for x in range(out_width):
-                pass
+                output_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
+                output_region_flatten = np.reshape(output_region, (batch_size, -1))
+                pixel = d_out[:, :, y, x]
+                d_output_region_flatten = np.dot(pixel, self._W_flatten.T)
+                d_output_region = np.reshape(d_output_region_flatten, output_region.shape)
+                d_pred[:, :, y:y + self.kernel_size, x:x + self.kernel_size] += d_output_region
 
+                self._W_flatten_grad += np.dot(output_region_flatten.T, pixel)
+                self.B.grad += np.sum(pixel, axis=1)
+
+        self.W.grad = np.reshape(self._W_flatten_grad, self.W.grad.shape)
 
     def params(self) -> dict[str, Value]:
         d = {
