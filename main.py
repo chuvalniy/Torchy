@@ -7,7 +7,7 @@ import sequential
 from loss import CrossEntropyLoss
 from optim import MomentumSGD
 from scheduler import ReduceLROnPlateau
-from tests.test_layer import test_conv2d
+from tests.test_layer import test_conv2d, test_conv2_with_padding
 
 
 def train_model():
@@ -42,6 +42,5 @@ def train_model():
 
 if __name__ == "__main__":
     np.random.seed(42)
-
-    test_conv2d()
+    test_conv2_with_padding()
 

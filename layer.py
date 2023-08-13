@@ -72,19 +72,21 @@ class Conv2d(NnLayer):
         self.stride = stride
         self.padding = padding
 
+        self._padding_width = ((0, 0), (0, 0), (padding, padding), (padding, padding))
+
     def forward(self, X):
-        self.X = X
+        self.X = np.pad(X, pad_width=self._padding_width, mode="constant", constant_values=0)
         batch_size, in_channels, height, width = X.shape
 
-        out_height = height - self.kernel_size // self.stride + 1
-        out_width = width - self.kernel_size // self.stride + 1
+        out_height = (height + 2 * self.padding - self.kernel_size) // self.stride + 1
+        out_width = (width + 2 * self.padding - self.kernel_size) // self.stride + 1
 
         _W_flatten = np.reshape(self.W.data, (-1, self.out_channels))
 
         out = np.zeros(shape=(batch_size, self.out_channels, out_height, out_width))
         for y in range(out_height):
             for x in range(out_width):
-                input_region = X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
+                input_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
                 input_region_flatten = np.reshape(input_region, (batch_size, -1))
                 output_feature_map = np.dot(input_region_flatten, _W_flatten) + self.B.data
                 out[:, :, y, x] = output_feature_map
@@ -111,7 +113,8 @@ class Conv2d(NnLayer):
                 _W_flatten_grad += np.dot(output_region_flatten.T, pixel)
 
         self.B.grad = np.sum(d_out, axis=(0, 2, 3))
-        return d_pred
+
+        return d_pred[:, :, 1:-1, 1:-1]
 
     def params(self) -> dict[str, Value]:
         d = {

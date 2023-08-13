@@ -33,7 +33,16 @@ def test_conv2d():
     assert GradientCheck.check_layer_param_gradient(layer, X, 'B')
 
 
+def test_conv2_with_padding():
+    X = np.random.randn(2, 2, 7, 7)
 
+    layer = Conv2d(in_channels=2, out_channels=2, kernel_size=3, padding=1)
+    result = layer.forward(X)
+    assert result.shape == X.shape, "Result shape: %s - Expected shape %s" % (result.shape, X.shape)
+    d_input = layer.backward(np.ones_like(result))
+    assert d_input.shape == X.shape
+    layer = Conv2d(in_channels=2, out_channels=2, kernel_size=3, padding=1)
+    assert GradientCheck.check_layer_gradient(layer, X)
 
 
 def test_relu():
