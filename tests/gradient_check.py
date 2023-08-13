@@ -2,10 +2,10 @@ import copy
 
 import numpy as np
 
-import sequential
-from layer import Layer, NnLayer
-from loss import CrossEntropyLoss
-from optim import SGD
+from torchy import sequential
+from torchy.layer import Layer, NnLayer
+from torchy.loss import CrossEntropyLoss
+from torchy.optim import SGD
 
 
 class GradientCheck:
