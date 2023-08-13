@@ -3,8 +3,10 @@ Built from scratch neural network library using only Numpy and PyTorch as refere
 
 ## Implemented
 1. Layers
-    - Linear (Dense) | With Kaimin parameter initialization
-    - ReLU
+    - Linear (Dense) 
+    - Convolutional
+    - ReLU + BatchNorm
+    - MaxPool (2D)
 2. Optimizations
    - SGD;
    - MomentumSGD;
@@ -17,8 +19,3 @@ Built from scratch neural network library using only Numpy and PyTorch as refere
    - StepLR;
    - ReduceLROnPlateau
 
-## TO DO (MVP)
-1. BatchNorm1d, BatchNorm2d
-2. Dataloader and Dataset logic
-3. Convolution Layer (+padding, stride)
-4. Activation functions (tanh, leaky relu)
