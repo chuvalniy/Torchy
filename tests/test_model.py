@@ -1,7 +1,6 @@
 from sklearn.datasets import make_classification
 
-import layer
-import sequential
+from torchy import layer, sequential
 from tests.gradient_check import GradientCheck
 
 

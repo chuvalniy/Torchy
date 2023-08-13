@@ -1,6 +1,6 @@
 import numpy as np
 
-from loss import CrossEntropyLoss, compute_softmax
+from torchy.loss import CrossEntropyLoss, compute_softmax
 from tests.gradient_check import GradientCheck
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.datasets import make_classification
 
-from layer import Linear, ReLU, BatchNorm1d, Conv2d, MaxPool2d
+from torchy.layer import Linear, ReLU, BatchNorm1d, Conv2d, MaxPool2d
 from tests.gradient_check import GradientCheck
 
 
