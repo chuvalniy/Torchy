@@ -1,17 +1,23 @@
-# import setuptools
-#
-# setuptools.setup(
-#     name="Torchy",
-#     version="0.1.0",
-#     description="Numpy-based neural network built from scratch with PyTorch-like approach of creating models for "
-#                 "study purposes",
-#     author="Valentin Belyaev",
-#     author_email="chuvalik.work@gmail.com",
-#     url="https://github.com/chuvalniy/Torchy",
-#     packages=setuptools.find_packages(),
-#     classifiers=[
-#         "Programming Language :: Python :: 3",
-#         "License :: OSI Approved :: MIT License",
-#         "Operating System :: OS Independent",
-#     ],
-# )
+from setuptools import setup, find_packages
+
+VERSION = '0.0.1'
+DESCRIPTION = 'NumPy based neural network package'
+
+setup(
+    name="torchy-nn",
+    version=VERSION,
+    author="Valentin Belyaev",
+    author_email="chuvalik.work@gmail.com",
+    description=DESCRIPTION,
+    packages=find_packages(),
+    install_requires=['numpy', 'scikit-learn', 'pytest'],
+    keywords=['python', 'neural net', 'from scratch', 'numpy', 'pytorch-like', 'cnn', 'dense'],
+    classifiers=[
+        "Development Status :: 1 - Planning",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python :: 3",
+        "Operating System :: Unix",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
+    ]
+)

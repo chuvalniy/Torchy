@@ -1,4 +1,6 @@
 data
-setup.py
-.idea/
-__pychache__/
+.idea
+__pychache__
+dist
+build
+torchy_nn.egg-info
