@@ -1,7 +1,7 @@
-from layer import Layer, NnLayer
+from torchy.layer import Layer, NnLayer
 import copy
 
-from value import Value
+from torchy.value import Value
 
 
 class Sequential:

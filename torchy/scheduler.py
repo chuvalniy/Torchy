@@ -2,7 +2,7 @@ from abc import ABC
 
 import numpy as np
 
-from optim import _Optim
+from torchy.optim import _Optim
 
 
 class _Scheduler(ABC):

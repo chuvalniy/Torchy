@@ -2,8 +2,8 @@ from abc import ABC
 
 import numpy as np
 
-from layer import NnLayer
-from value import Value
+from torchy.layer import NnLayer
+from torchy.value import Value
 
 
 class _Optim(ABC):

@@ -10,6 +10,7 @@ setup(
     author_email="chuvalik.work@gmail.com",
     description=DESCRIPTION,
     packages=find_packages(),
+    url="https://github.com/chuvalniy/Torchy",
     install_requires=['numpy', 'scikit-learn', 'pytest'],
     keywords=['python', 'neural net', 'from scratch', 'numpy', 'pytorch-like', 'cnn', 'dense'],
     classifiers=[

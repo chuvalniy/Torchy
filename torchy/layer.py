@@ -3,7 +3,7 @@ from abc import ABC
 
 import numpy as np
 
-from value import Value
+from torchy.value import Value
 
 
 class Layer(ABC):
