@@ -1,7 +1,7 @@
-from torchy.layer import Layer, NnLayer
 import copy
 
-from torchy.value import Value
+from layer import Layer, NnLayer
+from value import Value
 
 
 class Sequential:
@@ -10,6 +10,7 @@ class Sequential:
 
         for arg in args:
             if not isinstance(arg, Layer):
+                print(type(arg))
                 raise Exception("Invalid argument for layer")
 
             self._layers.append(arg)
