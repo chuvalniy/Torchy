@@ -4,3 +4,5 @@ torchy/__pychache__
 dist
 build
 torchy_nn.egg-info
+.pytest_cache
+tests/tes_optim.py
