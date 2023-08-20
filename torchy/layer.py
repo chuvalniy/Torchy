@@ -9,24 +9,24 @@ from torchy.value import Value
 
 class Layer(ABC):
     """
-    Abstract class that represents any layer behaviour and also used for type-hinting
+    Abstract class that represents any layer behavior and also used for type-hinting.
     """
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
-        Computes gradient with respect to input
+        Computes gradient with respect to input.
 
-        :param d_out: numpy array (n-dimensional) - gradient of loss with respect to output
-        :return: numpy array (n-dimensional) - gradient with respect to input
+        :param d_out: numpy array (n-dimensional) - gradient of loss with respect to output.
+        :return: numpy array (n-dimensional) - gradient with respect to input.
         """
         pass
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
-        Interface method that computes forward pass for layer
+        Interface method that computes forward pass for layer.
 
-        :param x: numpy array (n-dimensional) - previous forward pass
-        :return: numpy array(n-dimensional) - forward pass for this layer
+        :param x: numpy array (n-dimensional) - previous forward pass.
+        :return: numpy array(n-dimensional) - forward pass for this layer.
         """
         pass
 
@@ -36,12 +36,12 @@ class Layer(ABC):
 
 class NnLayer(Layer):
     """
-    Another abstract class to represent layers that can hold parameters (weight & bias)
+    Another abstract class to represent layers that can hold parameters (weight & bias).
     """
 
     def zero_grad(self):
         """
-        Goes through all the parameters in layer and sets their gradient to zero
+        Goes through all the parameters in layer and sets their gradient to zero.
 
         :return: None
         """
@@ -49,9 +49,9 @@ class NnLayer(Layer):
 
     def params(self) -> dict[str, Value]:
         """
-        Collects all layer parameters into dictionary
+        Collects all layer parameters into dictionary.
 
-        :return: dict[str, Value] - layer parameters
+        :return: dict[str, Value] - layer parameters.
         """
 
         pass
@@ -64,8 +64,8 @@ class Linear(NnLayer):
 
     def __init__(self, n_input: int, n_output: int):
         """
-        :param n_input: int - size of each input sample
-        :param n_output: int - size of each output sample
+        :param n_input: int - size of each input sample.
+        :param n_output: int - size of each output sample.
         """
         self.W = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
         self.B = Value(kaiming_init(n_input) * np.random.randn(1, n_output))
@@ -73,10 +73,10 @@ class Linear(NnLayer):
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
-        Computes forward pass for linear layer
+        Computes forward pass for linear layer.
 
-        :param x: numpy array (batch_size, n_input) - incoming data
-        :return: numpy array (batch_size, n_output) - incoming data after linear transformation
+        :param x: numpy array (batch_size, n_input) - incoming data.
+        :return: numpy array (batch_size, n_output) - incoming data after linear transformation.
         """
         self.X = copy.deepcopy(x)
 
@@ -109,9 +109,9 @@ class Linear(NnLayer):
 
     def params(self) -> dict[str, Value]:
         """
-        Collects all layer parameters into dictionary
+        Collects all layer parameters into dictionary.
 
-        :return: dict[str, Value] - layer parameters
+        :return: dict[str, Value] - layer parameters.
         """
 
         d = {
@@ -129,11 +129,11 @@ class Conv2d(NnLayer):
 
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, padding: int = 0):
         """
-        :param in_channels: int - number of input channels
-        :param out_channels: int - number of output channels after convolution
-        :param kernel_size: int - size of convolutional kernel
-        :param stride: int - stride of convolutional kernel (default = 1)
-        :param padding: int = padding added to all axis with respect to input (default = 0)
+        :param in_channels: int - number of input channels.
+        :param out_channels: int - number of output channels after convolution.
+        :param kernel_size: int - size of convolutional kernel.
+        :param stride: int - stride of convolutional kernel (default = 1).
+        :param padding: int = padding added to all axes with respect to input (default = 0).
         """
         self.W = Value(np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
         self.B = Value(np.zeros(out_channels))
@@ -149,11 +149,11 @@ class Conv2d(NnLayer):
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
-        Computes forward pass for convolutional layer
+        Computes forward pass for convolutional layer.
 
-        :param x: numpy array (batch_size, in_channels, height, width) - incoming data
+        :param x: numpy array (batch_size, in_channels, height, width) - incoming data.
         :return: numpy array (batch_size, out_channels, out_height, out_width) - incoming data after
-        performing convolution operation on it
+        performing convolution operation on it.
         """
         self.X = np.pad(x, pad_width=self._padding_width, mode="constant", constant_values=0)
         batch_size, in_channels, height, width = x.shape
@@ -176,11 +176,11 @@ class Conv2d(NnLayer):
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
         Computes gradient for convolutional layer with respect to input, weight and bias and also removes padding
-        from input layer that was added in the forward pass
+        from the input layer that was added in the forward pass.
 
         :param d_out: numpy array (batch_size, out_channels, out_height, out_width) - gradient of loss function with
-        respect to output of forward pass
-        :return: numpy array (batch_size, in_channels, height, width) - gradient with respect to input
+        respect to output of forward pass.
+        :return: numpy array (batch_size, in_channels, height, width) - gradient with respect to input.
         """
         batch_size, out_channels, out_height, out_width = d_out.shape
 
@@ -205,9 +205,9 @@ class Conv2d(NnLayer):
 
     def params(self) -> dict[str, Value]:
         """
-        Collects all layer parameters into dictionary
+        Collects all layer parameters into dictionary.
 
-        :return: dict[str, Value] - layer parameters
+        :return: dict[str, Value] - layer parameters.
         """
         d = {
             "W": self.W,
@@ -219,7 +219,7 @@ class Conv2d(NnLayer):
 
 class ReLU(Layer):
     """
-    Rectified Linear Unit activation function
+    Rectified Linear Unit activation function.
     """
 
     def __init__(self):
@@ -229,32 +229,32 @@ class ReLU(Layer):
         """
         Forward pass of ReLU layer
 
-        :param x: numpy array (n-dimensional) - incoming data
+        :param x: numpy array (n-dimensional) - incoming data.
         :return: numpy array (n-dimensional) - data after performing activation function on it, same shape
-        as x
+        as x.
         """
         self._mask = x > 0
         return np.where(self._mask, x, 0)
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
-        Computes backward pass with respect to incoming data
+        Computes backward pass with respect to incoming data.
 
-        :param d_out: numpy array (n-dimensional) - gradient of loss function with respect to output of forward pass
-        :return: numpy array (n-dimensional) - gradient with respect to x, same shape as d_out
+        :param d_out: numpy array (n-dimensional) - gradient of loss function with respect to output of forward pass.
+        :return: numpy array (n-dimensional) - gradient with respect to x, the same shape as d_out.
         """
         return d_out * self._mask
 
 
 class BatchNorm1d(NnLayer):
     """
-    Batch Normalization for one-dimensional layers
+    Batch Normalization for one-dimensional layers.
     """
 
     def __init__(self, n_output: int, eps: float = 1e-5):
         """
-        :param n_output: int - number of output parameters
-        :param eps: eps - value added to numerical stability in denominator
+        :param n_output: int - number of output parameters.
+        :param eps: eps - value added to numerical stability in denominator.
         """
         self._out = None
         self._X_norm = None
@@ -267,10 +267,10 @@ class BatchNorm1d(NnLayer):
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
-        Forward pass of BatchNorm1d layer
+        Forward pass of BatchNorm1d layer.
 
-        :param x: numpy array (batch_size, n_output) - incoming data
-        :return: numpy array (batch_size, n_output) - result of batchnorm processing
+        :param x: numpy array (batch_size, n_output) - incoming data.
+        :return: numpy array (batch_size, n_output) - result of batchnorm processing.
         """
         self.x = copy.deepcopy(x)
 
@@ -283,10 +283,10 @@ class BatchNorm1d(NnLayer):
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
-        Computes backward pass with respect to self.x, self.gamma and self.beta
+        Computes backward pass with respect to self.x, self.gamma and self.beta.
 
-        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect of forward pass
-        :return: numpy array (batch_size, n_output) - gradient with respect to self.x
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect of forward pass.
+        :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
         """
         self.gamma.grad = (self._X_norm * d_out).sum(axis=0)
         self.beta.grad = d_out.sum(0)
@@ -303,9 +303,9 @@ class BatchNorm1d(NnLayer):
 
     def params(self) -> dict[str, Value]:
         """
-        Collects all layer parameters into dictionary
+        Collects all layer parameters into dictionary.
 
-        :return: dict[str, Value] - layer parameters
+        :return: dict[str, Value] - layer parameters.
         """
         d = {
             "gamma": self.gamma,
@@ -317,14 +317,14 @@ class BatchNorm1d(NnLayer):
 
 class MaxPool2d(Layer):
     """
-    Max pooling layer for 2-dimensional input (Convolutional Layer)
+    Max pooling layer for 2-dimensional input (Convolutional Layer).
     """
 
     def __init__(self, kernel_size: int, stride: int = None, padding: int = 0):
         """
-        :param kernel_size: int - size of max pooling kernel
-        :param stride: int - stride of max pooling  kernel (default = kernel_size)
-        :param padding: int = padding added to all axis with respect to input (default = 0)
+        :param kernel_size: int - size of max pooling kernel.
+        :param stride: int - stride of max pooling  kernel (default = kernel_size).
+        :param padding: int = padding added to all axis with respect to input (default = 0).
         """
         self.X = None
 
@@ -335,10 +335,10 @@ class MaxPool2d(Layer):
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
-        Forward pass of max pooling layer
+        Forward pass of max pooling layer.
 
-        :param x: numpy array (batch_size, in_channels, height, width) - data to perform max pooling
-        :return: numpy array (batch_size, in_channels, out_height, out_width) - result of max pooling 'x'
+        :param x: numpy array (batch_size, in_channels, height, width) - data to perform max pooling.
+        :return: numpy array (batch_size, in_channels, out_height, out_width) - result of max pooling 'x'.
         """
         self.X = np.pad(x, pad_width=self._padding_width, mode="constant", constant_values=0)
         batch_size, in_channels, height, width = self.X.shape
@@ -356,11 +356,11 @@ class MaxPool2d(Layer):
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
-        Computes backward pass with respect to self.x
+        Computes backward pass with respect to self.x.
 
         :param d_out: numpy array (batch_size, in_channels, out_height, out_width) - gradient of loss function with
-        respect to output of forward pass
-        :return: numpy array (batch_size, in_channels, height, width) - gradient with respect to self.x
+        respect to output of forward pass.
+        :return: numpy array (batch_size, in_channels, height, width) - gradient with respect to self.x.
         """
         _, in_channels, out_height, out_width = d_out.shape
 

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.1.1'
+VERSION = '0.1.2.0'
 DESCRIPTION = 'NumPy based neural network package'
 
 setup(
