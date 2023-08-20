@@ -1,14 +1,35 @@
 import numpy as np
 
 
-def compute_softmax(y_pred):
+def compute_softmax(y_pred: np.ndarray) -> np.ndarray:
+    """
+    Computes softmax function and subtracts maximum value from each row for calculcation stability.
+
+    :param y_pred: numpy array (batch_size, n_output) - predictions computed by neural network with a range
+    of values from (-infinity, +infinity)
+    :return: numpy array (batch_size, n_output) - result of softmax function with a range of values from (0, 1) with total
+    row sum of 1.
+    """
     exps = np.exp(y_pred - np.max(y_pred, axis=1, keepdims=True))
     return exps / np.sum(exps, axis=1, keepdims=True)
 
 
 class CrossEntropyLoss:
+    """
+    Cross-entropy Loss
 
-    def __call__(self, y_pred, y_true):
+    Computes the cross entropy loss between input logits and the target
+    """
+
+    def __call__(self, y_pred: np.ndarray, y_true: np.ndarray) -> (float, np.ndarray):
+        """
+
+        :param y_pred: numpy array (batch_size, n_output) - predictions computed by neural network with a range
+        of values from (-infinity, +infinity)
+        :param y_true: numpy array (batch_size) - indices of ground truth values
+        :return: loss (float) - cross-entropy loss
+        :return grad (batch_size, n_output) - gradient of loss function with respect to softmax
+        """
         batch_size = y_pred.shape[0]
         num_classes = y_pred.shape[1]
 

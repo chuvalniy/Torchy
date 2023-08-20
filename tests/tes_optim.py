@@ -1,40 +1,26 @@
 import numpy as np
-from sklearn.datasets import make_classification
 
-import layer
-import sequential
-from loss import CrossEntropyLoss
-from optim import _Optim, SGD, MomentumSGD, Adam, Adagrad, RMSProp
+from layer import Linear
+from optim import SGD
+from sequential import Sequential
 from value import Value
 
 
-def get_model():
-    model = sequential.Sequential(
-        layer.Linear(n_input=20, n_output=10),
-        layer.BatchNorm1d(n_output=10),
-        layer.ReLU(),
-        layer.Linear(n_input=10, n_output=2)
-    )
+def get_parameters():
+    param_1 = Value(np.array([[1, 2, 3], [4, 5, 6]]))
+    param_1.grad = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
 
-    return model
+    d = {"param_1": param_1}
+
+    return d
 
 
-def train_model(model: sequential.Sequential, optimizer: _Optim):
-    X, y = make_classification(n_samples=10, n_features=20, n_redundant=5)
+def test_zero_grad_custom_params():
+    params = get_parameters()
 
-    criterion = CrossEntropyLoss()
+    optimizer = SGD(params, lr=1e-4, weight_decay=0.0)
 
-    for epoch in range(100):
-        predictions = model(X)
+    optimizer.zero_grad()
 
-        loss, grad = criterion(predictions, y)
-
-        optimizer.zero_grad()
-        model.backward(grad)
-        optimizer.step()
-
-        indices = np.argmax(predictions, 1)
-
-        accuracy = np.sum(indices == y) / y.shape[0]
-        print(f"Accuracy: {np.round(accuracy * 100, 4)}, Loss: {loss}")
-
+    for param_name, param in optimizer._params.items():
+        assert np.sum(param.grad) == 0.0
