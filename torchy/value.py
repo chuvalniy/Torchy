@@ -3,8 +3,8 @@ import numpy as np
 
 class Value:
     """
-    Represent trainable parameter
-    Contain both parameter and gradient values
+    Trainable parameter
+    Contain both data and gradient values
     """
 
     def __init__(self, value: np.ndarray):

@@ -14,9 +14,9 @@ class _Optim(ABC):
         """
         :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped
         into dictionary where key is parameter name in a specific layer and value is weight/bias with its own
-        data and gradient of that specific layer
-        :param lr: float - learning rate of neural network model
-        :param weight_decay: float - regularization parameter
+        data and gradient of that specific layer.
+        :param lr: float - learning rate of a neural network model.
+        :param weight_decay: float - regularization parameter.
         """
         self._params = params
         self.lr = lr
@@ -24,24 +24,24 @@ class _Optim(ABC):
 
     def zero_grad(self):
         """
-        Goes through the self.params and zeroes parameter gradients
+        Goes through the self.params and zeroes parameter gradients.
         """
         for param in self._params.values():
             param.grad = np.zeros_like(param.grad)
 
     def _update(self, param_name: str, param: Value):
         """
-        Single parameter update
+        Single parameter update.
 
-        :param param_name: str - parameter name
-        :param param: Value - holds parameter state (data and gradient)
+        :param param_name: str - parameter name.
+        :param param: Value - holds parameter state (data and gradient).
         """
         pass
 
     def step(self):
         """
         Loops over parameter dictionary, unpacks it by key and value and then passes
-        key and value to the update method
+        key and value to the update method.
         """
         for param_name, param in self._params.items():
             self._update(param_name, param)
@@ -49,15 +49,15 @@ class _Optim(ABC):
 
 class SGD(_Optim):
     """
-    Implementation of classic Stochastic Gradient Descent
+    Implementation of classic Stochastic Gradient Descent.
     """
 
     def _update(self, param_name: str, param: Value):
         """
-        Single SGD parameter update with regularization
+        Single SGD parameter update with regularization.
 
-        :param param_name: str - parameter name
-        :param param: Value - holds parameter state (data and gradient)
+        :param param_name: str - parameter name.
+        :param param: Value - holds parameter state (data and gradient).
         """
         gradient = param.grad + self.weight_decay * param.data
         param.data -= self.lr * gradient
@@ -70,12 +70,12 @@ class MomentumSGD(_Optim):
 
     def __init__(self, params: dict[str, Value], lr: float = 1e-4, weight_decay: float = 0.0, momentum: float = 0.9):
         """
-        :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped
+        :param params: dict (parameter_name: str, parameter: Value) - contains all neural network parameters wrapped
         into dictionary where key is parameter name in a specific layer and value is weight/bias with its own
-        data and gradient of that specific layer
-        :param lr: float - learning rate of neural network model
-        :param weight_decay: float - regularization parameter
-        :param momentum: float (0.9-0.999) - momentum parameter (default = 0.9)
+        data and gradient of that specific layer.
+        :param lr: float - learning rate of a neural network model.
+        :param weight_decay: float - regularization parameter.
+        :param momentum: float (0.9-0.999) - momentum parameter (default = 0.9).
         """
         super().__init__(params=params, lr=lr, weight_decay=weight_decay)
         self.momentum = momentum
@@ -83,10 +83,10 @@ class MomentumSGD(_Optim):
 
     def _update(self, param_name: str, param: Value):
         """
-        Single MomentumSGD parameter update with regularization
+        Single MomentumSGD parameter update with regularization.
 
-        :param param_name: str - parameter name
-        :param param: Value - holds parameter state (data and gradient)
+        :param param_name: str - parameter name.
+        :param param: Value - holds parameter state (data and gradient).
         """
         velocity = self._velocities.get(param_name, np.zeros_like(param.data))
         gradient = param.grad + self.weight_decay * param.data
@@ -97,17 +97,17 @@ class MomentumSGD(_Optim):
 
 class Adagrad(_Optim):
     """
-    Adagrad neural network optimization
+    Adagrad neural network optimization.
     """
 
     def __init__(self, params: dict[str, Value], lr: float = 1e-2, weight_decay: float = 0.0, eps: float = 1e-8):
         """
         :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped
         into dictionary where key is parameter name in a specific layer and value is weight/bias with its own
-        data and gradient of that specific layer
-        :param lr: float - learning rate of neural network model
-        :param weight_decay: float - regularization parameter
-        :param eps: float - value added to numerical stability in denominator
+        data and gradient of that specific layer.
+        :param lr: float - learning rate of a neural network model.
+        :param weight_decay: float - regularization parameter.
+        :param eps: float - value added to numerical stability in the denominator.
         """
         super().__init__(params=params, lr=lr, weight_decay=weight_decay)
         self.eps = eps
@@ -115,10 +115,10 @@ class Adagrad(_Optim):
 
     def _update(self, param_name: str, param: Value):
         """
-        Single Adagrad parameter update with regularization
+        Single Adagrad parameter update with regularization.
 
-        :param param_name: str - parameter name
-        :param param: Value - holds parameter state (data and gradient)
+        :param param_name: str - parameter name.
+        :param param: Value - holds parameter state (data and gradient).
         """
         grad_squared = np.square(param.grad)
         grad_accumulated = self._accumulated.get(param_name, np.zeros_like(param.grad))
@@ -137,13 +137,13 @@ class RMSProp(_Optim):
     def __init__(self, params: dict[str, Value], lr: float = 1e-2, weight_decay: float = 0.0, rho: float = 0.9,
                  eps: float = 1e-8):
         """
-        :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped
+        :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped.
         into dictionary where key is parameter name in a specific layer and value is weight/bias with its own
-        data and gradient of that specific layer
-        :param lr: float - learning rate of neural network model
-        :param weight_decay: float - regularization parameter
-        :param rho: float - momentum factor
-        :param eps: float - value added to numerical stability in denominator
+        data and gradient of that specific layer.
+        :param lr: float - learning rate of a neural network model.
+        :param weight_decay: float - regularization parameter.
+        :param rho: float - momentum factor.
+        :param eps: float - value added to numerical stability in the denominator.
         """
         super().__init__(params=params, lr=lr, weight_decay=weight_decay)
         self.rho = rho
@@ -152,10 +152,10 @@ class RMSProp(_Optim):
 
     def _update(self, param_name: str, param: Value):
         """
-        Single RMRSProp parameter update with regularization
+        Single RMRSProp parameter update with regularization.
 
-        :param param_name: str - parameter name
-        :param param: Value - holds parameter state (data and gradient)
+        :param param_name: str - parameter name.
+        :param param: Value - holds parameter state (data and gradient).
         """
         grad_squared = np.square(param.grad)
         grad_accumulated = self._accumulated.get(param_name, np.zeros_like(param.grad))
@@ -177,12 +177,12 @@ class Adam(_Optim):
         """
         :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped
         into dictionary where key is parameter name in a specific layer and value is weight/bias with its own
-        data and gradient of that specific layer
-        :param beta1: float - coefficient used for computing running averages
-        :param beta2: float - coefficient used for computing running averages
-        :param lr: float - learning rate of neural network model
-        :param weight_decay: float - regularization parameter
-        :param eps: float - value added to numerical stability in denominator
+        data and gradient of that specific layer.
+        :param beta1: float - coefficient used for computing running averages.
+        :param beta2: float - coefficient used for computing running averages.
+        :param lr: float - learning rate of a neural network model.
+        :param weight_decay: float - regularization parameter.
+        :param eps: float - value added to numerical stability in the denominator.
         """
 
         super().__init__(params=params, lr=lr, weight_decay=weight_decay)
@@ -195,10 +195,10 @@ class Adam(_Optim):
 
     def _update(self, param_name: str, param: Value):
         """
-        Single Adam parameter update with regularization
+        Single Adam parameter update with regularization.
 
-        :param param_name: str - parameter name
-        :param param: Value - holds parameter state (data and gradient)
+        :param param_name: str - parameter name.
+        :param param: Value - holds parameter state (data and gradient).
         """
         velocity = self._velocities.get(param_name, np.zeros_like(param.data))
         self._velocities[param_name] = self.beta1 * velocity + (1 - self.beta1) * param.grad
