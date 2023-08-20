@@ -104,8 +104,8 @@ class Linear(NnLayer):
 
         :return: None
         """
-        for _, value in self.params().items():
-            value.grad = 0.0
+        for _, param in self.params().items():
+            param.grad = np.zeros_like(param.grad)
 
     def params(self) -> dict[str, Value]:
         """
@@ -254,7 +254,7 @@ class BatchNorm1d(NnLayer):
     def __init__(self, n_output: int, eps: float = 1e-5):
         """
         :param n_output: int - number of output parameters
-        :param eps: eps - value added to numerical stability
+        :param eps: eps - value added to numerical stability in denominator
         """
         self._out = None
         self._X_norm = None
