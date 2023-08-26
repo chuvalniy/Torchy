@@ -171,9 +171,15 @@ class Adam(_Optim):
     Adam gradient optimization algorithm.
     """
 
-    def __init__(self, params: dict[str, Value], beta1: float = 0.9, beta2: float = 0.999, lr: float = 1e-2,
+    def __init__(self,
+                 params: dict[str, Value],
+                 beta1: float = 0.9,
+                 beta2: float = 0.999,
+                 lr: float = 1e-2,
                  weight_decay: float = 0.0,
-                 eps: float = 1e-8):
+                 eps: float = 1e-8,
+                 t: int = 0
+                 ):
         """
         :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped
         into dictionary where key is parameter name in a specific layer and value is weight/bias with its own
@@ -183,6 +189,7 @@ class Adam(_Optim):
         :param lr: float - learning rate of a neural network model.
         :param weight_decay: float - regularization parameter.
         :param eps: float - value added to numerical stability in the denominator.
+        :param t: int - iteration number for warming up Adam.
         """
 
         super().__init__(params=params, lr=lr, weight_decay=weight_decay)
@@ -192,6 +199,7 @@ class Adam(_Optim):
         self.eps = eps
         self.beta1 = beta1
         self.beta2 = beta2
+        self.t = t
 
     def _update(self, param_name: str, param: Value):
         """
@@ -200,13 +208,15 @@ class Adam(_Optim):
         :param param_name: str - parameter name.
         :param param: Value - holds parameter state (data and gradient).
         """
+        self.t += 1
+
         velocity = self._velocities.get(param_name, np.zeros_like(param.data))
         self._velocities[param_name] = self.beta1 * velocity + (1 - self.beta1) * param.grad
+        vt = self._velocities[param_name] / (1 - self.beta1 ** self.t)
 
-        grad_squared = np.square(param.grad)
         accumulated = self._accumulated.get(param_name, np.zeros_like(param.data))
-        self._accumulated[param_name] = self.beta2 * accumulated + (1 - self.beta2) * grad_squared
+        self._accumulated[param_name] = self.beta2 * accumulated + (1 - self.beta2) * param.grad ** 2
+        at = self._accumulated[param_name] / (1 - self.beta2 ** self.t)
 
-        adaptive_lr = self.lr / np.sqrt(self._accumulated[param_name] + self.eps)
+        param.data -= self.lr * vt / (np.sqrt(at) + self.eps) + (self.weight_decay * param.data)
 
-        param.data -= (adaptive_lr * self._velocities[param_name]) + (self.weight_decay * param.data)

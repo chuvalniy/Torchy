@@ -62,14 +62,16 @@ class Linear(NnLayer):
     Fully-connected / Dense layer
     """
 
-    def __init__(self, n_input: int, n_output: int):
+    def __init__(self, n_input: int, n_output: int, bias: bool = True):
         """
         :param n_input: int - size of each input sample.
         :param n_output: int - size of each output sample.
+        :param bias: bool - consider bias in layer computation or not
         """
         self.W = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
-        self.B = Value(kaiming_init(n_input) * np.random.randn(1, n_output))
+        self.B = Value(kaiming_init(n_input) * np.random.randn(1, n_output)) if bias else None
         self.X = None
+        self.out = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
@@ -79,20 +81,24 @@ class Linear(NnLayer):
         :return: numpy array (batch_size, n_output) - incoming data after linear transformation.
         """
         self.X = copy.deepcopy(x)
+        self.out = np.dot(self.X, self.W.data)
 
-        return np.dot(self.X, self.W.data) + self.B.data
+        if self.B is not None:
+            self.out += self.B.data
+
+        return self.out
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
         Computes gradient with respect to input, weight and bias
 
-        :param d_out: numpy array (batch_size, n_output) - gradient of loss with respect to output
-        :return: numpy array (batch_size, n_input) - gradient with respect to input
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss with respect to an output.
+        :return: numpy array (batch_size, n_input) - gradient with respect to input.
         """
         self.W.grad = np.dot(self.X.T, d_out)
 
-        E = np.ones(shape=(1, self.X.shape[0]))
-        self.B.grad = E.dot(d_out)
+        if self.B is not None:
+            self.B.grad = np.sum(d_out, axis=0).T
 
         d_pred = np.dot(d_out, self.W.data.T)
 
@@ -116,8 +122,10 @@ class Linear(NnLayer):
 
         d = {
             "W": self.W,
-            "B": self.B
         }
+
+        if self.B is not None:
+            d["B"] = self.B
 
         return d
 
@@ -127,16 +135,25 @@ class Conv2d(NnLayer):
     Two-dimensional convolutional neural network layer
     """
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, stride: int = 1, padding: int = 0):
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            kernel_size: int,
+            stride: int = 1,
+            padding: int = 0,
+            bias: bool = True
+    ):
         """
         :param in_channels: int - number of input channels.
         :param out_channels: int - number of output channels after convolution.
         :param kernel_size: int - size of convolutional kernel.
         :param stride: int - stride of convolutional kernel (default = 1).
-        :param padding: int = padding added to all axes with respect to input (default = 0).
+        :param padding: int - padding added to all axes with respect to input (default = 0).
+        :param bias: bool - consider bias in layer computation or not
         """
         self.W = Value(np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
-        self.B = Value(np.zeros(out_channels))
+        self.B = Value(np.zeros(out_channels)) if bias else None
         self.X = None
 
         self.in_channels = in_channels
@@ -168,7 +185,11 @@ class Conv2d(NnLayer):
             for x in range(0, out_width, self.stride):
                 input_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
                 input_region_flatten = np.reshape(input_region, (batch_size, -1))
-                output_feature_map = np.dot(input_region_flatten, W_flatten) + self.B.data
+
+                output_feature_map = np.dot(input_region_flatten, W_flatten)
+                if self.B is not None:
+                    output_feature_map += self.B.data
+
                 out[:, :, y, x] = output_feature_map
 
         return out
@@ -199,7 +220,8 @@ class Conv2d(NnLayer):
 
                 W_flatten_grad += np.dot(output_region_flatten.T, pixel)
 
-        self.B.grad = np.sum(d_out, axis=(0, 2, 3))
+        if self.B is not None:
+            self.B.grad = np.sum(d_out, axis=(0, 2, 3))
 
         return d_pred[:, :, 1:-1, 1:-1]
 
@@ -211,8 +233,10 @@ class Conv2d(NnLayer):
         """
         d = {
             "W": self.W,
-            "B": self.B
         }
+
+        if self.B is not None:
+            d["B"] = self.B
 
         return d
 
@@ -251,19 +275,28 @@ class BatchNorm1d(NnLayer):
     Batch Normalization for one-dimensional layers.
     """
 
-    def __init__(self, n_output: int, eps: float = 1e-5):
+    def __init__(self,
+                 n_output: int,
+                 eps: float = 1e-5,
+                 momentum: float = 0.9):
         """
         :param n_output: int - number of output parameters.
-        :param eps: eps - value added to numerical stability in denominator.
+        :param eps: float - value added to numerical stability in denominator.
+        :param momentum: float - coefficient for computing running mean and variance
         """
         self._out = None
         self._X_norm = None
         self._X_var = None
         self._X_mean = None
         self.x = None
+
         self.eps = eps
         self.gamma = Value(np.ones(n_output))
         self.beta = Value(np.zeros(n_output))
+        self.momentum = momentum
+
+        self.running_mean = np.zeros(n_output)
+        self.running_var = np.zeros(n_output)
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
@@ -279,13 +312,17 @@ class BatchNorm1d(NnLayer):
         self._X_norm = (x - self._X_mean) / np.sqrt(self._X_var + self.eps)
 
         self._out = self.gamma.data * self._X_norm + self.beta.data
+
+        self.running_mean = self.momentum * self.running_var + (1 - self.momentum) * self._X_mean
+        self.running_var = self.momentum * self.running_var + (1 - self.momentum) * self._X_var
+
         return self._out
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
         Computes backward pass with respect to self.x, self.gamma and self.beta.
 
-        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect of forward pass.
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
         :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
         """
         self.gamma.grad = (self._X_norm * d_out).sum(axis=0)
