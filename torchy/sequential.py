@@ -6,7 +6,7 @@ from layer import Layer, NnLayer
 from value import Value
 
 
-class Sequential:
+class Sequential(Layer):
     """
     Module for structuring neural network layers
     """
@@ -15,6 +15,8 @@ class Sequential:
         """
         :param args: Layer - collection of neural network layers that will be executed sequentially
         """
+        super(Sequential, self).__init__()
+
         self._layers: list[Layer] = []
 
         for arg in args:
@@ -27,7 +29,7 @@ class Sequential:
     def __call__(self, x: np.ndarray) -> np.ndarray:
         """
         Iterates over a list of neural network layers and
-        sequentially performs a forward pass
+        sequentially performs a forward pass depending on the mode state
 
         :param x: numpy array (n-dimensional) - data for prediction
         :return: numpy array (n-dimensional) - logits after performing forward pass
@@ -49,8 +51,21 @@ class Sequential:
         for layer in reversed(self._layers):
             d_out_copy = layer.backward(d_out_copy)
 
-    def predict(self, x):
-        pass
+        return d_out_copy
+
+    def eval(self):
+        """
+        Iterates over a list of neural network layers and sets their mode to evaluation.
+        """
+        for layer in self._layers:
+            layer.eval()
+
+    def train(self):
+        """
+        Iterates over a list of neural network layers and sets their mode to training.
+        """
+        for layer in self._layers:
+            layer.train()
 
     def params(self) -> dict[str, Value]:
         """

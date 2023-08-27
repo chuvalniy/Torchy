@@ -12,6 +12,9 @@ class Layer(ABC):
     Abstract class that represents any layer behavior and also used for type-hinting.
     """
 
+    def __init__(self):
+        self._train = True
+
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
         Computes gradient with respect to input.
@@ -33,19 +36,17 @@ class Layer(ABC):
     def __call__(self, x: np.ndarray) -> np.ndarray:
         return self.forward(x)
 
+    def eval(self):
+        self._train = False
+
+    def train(self):
+        self._train = True
+
 
 class NnLayer(Layer):
     """
     Another abstract class to represent layers that can hold parameters (weight & bias).
     """
-
-    def zero_grad(self):
-        """
-        Goes through all the parameters in layer and sets their gradient to zero.
-
-        :return: None
-        """
-        pass
 
     def params(self) -> dict[str, Value]:
         """
@@ -68,6 +69,8 @@ class Linear(NnLayer):
         :param n_output: int - size of each output sample.
         :param bias: bool - consider bias in layer computation or not
         """
+        super(Linear, self).__init__()
+
         self.W = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
         self.B = Value(kaiming_init(n_input) * np.random.randn(1, n_output)) if bias else None
         self.X = None
@@ -103,15 +106,6 @@ class Linear(NnLayer):
         d_pred = np.dot(d_out, self.W.data.T)
 
         return d_pred
-
-    def zero_grad(self):
-        """
-        Goes through layer parameters and zeroes their gradient
-
-        :return: None
-        """
-        for _, param in self.params().items():
-            param.grad = np.zeros_like(param.grad)
 
     def params(self) -> dict[str, Value]:
         """
@@ -152,6 +146,8 @@ class Conv2d(NnLayer):
         :param padding: int - padding added to all axes with respect to input (default = 0).
         :param bias: bool - consider bias in layer computation or not
         """
+        super(Conv2d, self).__init__()
+
         self.W = Value(np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
         self.B = Value(np.zeros(out_channels)) if bias else None
         self.X = None
@@ -247,6 +243,8 @@ class ReLU(Layer):
     """
 
     def __init__(self):
+        super(ReLU, self).__init__()
+
         self._mask = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:
@@ -284,11 +282,13 @@ class BatchNorm1d(NnLayer):
         :param eps: float - value added to numerical stability in denominator.
         :param momentum: float - coefficient for computing running mean and variance
         """
+        super(BatchNorm1d, self).__init__()
+
         self._out = None
         self._X_norm = None
         self._X_var = None
         self._X_mean = None
-        self.x = None
+        self._X = None
 
         self.eps = eps
         self.gamma = Value(np.ones(n_output))
@@ -305,7 +305,12 @@ class BatchNorm1d(NnLayer):
         :param x: numpy array (batch_size, n_output) - incoming data.
         :return: numpy array (batch_size, n_output) - result of batchnorm processing.
         """
-        self.x = copy.deepcopy(x)
+        if not self._train:
+            eval_norm = (x - self.running_mean) / np.sqrt(self.running_var + self.eps)
+            self._out = self.gamma.data * eval_norm + self.beta.data
+            return self._out
+
+        self._X = copy.deepcopy(x)
 
         self._X_mean = np.mean(x, axis=0, keepdims=True)
         self._X_var = np.var(x, axis=0, keepdims=True)
@@ -320,7 +325,7 @@ class BatchNorm1d(NnLayer):
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
-        Computes backward pass with respect to self.x, self.gamma and self.beta.
+        Computes backward pass with respect to x, gamma and beta.
 
         :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
         :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
@@ -328,14 +333,14 @@ class BatchNorm1d(NnLayer):
         self.gamma.grad = (self._X_norm * d_out).sum(axis=0)
         self.beta.grad = d_out.sum(0)
 
-        batch_size = self.x.shape[0]
+        batch_size = self._X.shape[0]
 
         sqrt_var_eps = np.sqrt(self._X_var + self.eps)
         dxhat = d_out * self.gamma.data
-        dvar = np.sum(dxhat * (self.x - self._X_mean), axis=0) * (-1 / 2) * (self._X_var + self.eps) ** (-3 / 2)
-        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self.x - self._X_mean,
+        dvar = np.sum(dxhat * (self._X - self._X_mean), axis=0) * (-1 / 2) * (self._X_var + self.eps) ** (-3 / 2)
+        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self._X - self._X_mean,
                                                                                               axis=0)
-        dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self.x - self._X_mean) + dmu / batch_size
+        dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self._X - self._X_mean) + dmu / batch_size
         return dx
 
     def params(self) -> dict[str, Value]:
@@ -363,8 +368,9 @@ class MaxPool2d(Layer):
         :param stride: int - stride of max pooling  kernel (default = kernel_size).
         :param padding: int = padding added to all axis with respect to input (default = 0).
         """
-        self.X = None
+        super(MaxPool2d, self).__init__()
 
+        self.X = None
         self.kernel_size = kernel_size
         self.stride = stride if stride is not None else kernel_size
         self.padding = padding
@@ -410,3 +416,42 @@ class MaxPool2d(Layer):
                 d_pred[:, :, y:y + self.kernel_size, x:x + self.kernel_size] += grad * mask
 
         return d_pred
+
+
+class Dropout(Layer):
+    """
+    Inverted dropout
+    """
+
+    def __init__(self, p: float = 0.5):
+        """
+        :param p: float - probability of keeping each neuron
+        """
+        super(Dropout, self).__init__()
+
+        self.p = p
+        self.mask = None
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Performs forward pass for inverted dropout.
+
+        :param x: numpy array (n-dimensional) - incoming data.
+        :return: numpy array (n-dimensional) - output data, same shape as incoming data
+        """
+        out = x.copy()
+        if self._train:
+            self.mask = (np.random.rand(*x.shape) < self.p) / self.p
+            out *= self.mask
+
+        return out
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to forward pass input.
+
+        :param d_out: numpy array (n-dimensional) - gradient of loss with respect to output of forward pass
+        :return: numpy array (n-dinemsional) - gradient with respect to input, same shape as forward pass input
+        """
+
+        return d_out * self.mask
