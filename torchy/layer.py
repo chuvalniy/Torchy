@@ -37,9 +37,15 @@ class Layer(ABC):
         return self.forward(x)
 
     def eval(self):
+        """
+        Set layer to evaluation mode
+        """
         self._train = False
 
     def train(self):
+        """
+        Set layer to training mode
+        """
         self._train = True
 
 
@@ -72,7 +78,7 @@ class Linear(NnLayer):
         super(Linear, self).__init__()
 
         self.W = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
-        self.B = Value(kaiming_init(n_input) * np.random.randn(1, n_output)) if bias else None
+        self.B = Value(np.zeros(shape=(1, n_output))) if bias else None
         self.X = None
         self.out = None
 
@@ -148,9 +154,10 @@ class Conv2d(NnLayer):
         """
         super(Conv2d, self).__init__()
 
-        self.W = Value(np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
-        self.B = Value(np.zeros(out_channels)) if bias else None
-        self.X = None
+        init_value = kaiming_init(in_channels * kernel_size * kernel_size)
+        self.weight = Value(init_value * np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
+        self.bias = Value(np.zeros(out_channels)) if bias else None
+        self.x = None
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -168,25 +175,31 @@ class Conv2d(NnLayer):
         :return: numpy array (batch_size, out_channels, out_height, out_width) - incoming data after
         performing convolution operation on it.
         """
-        self.X = np.pad(x, pad_width=self._padding_width, mode="constant", constant_values=0)
+        self.x = x
+        x_padded = np.pad(x, pad_width=self._padding_width)
+
         batch_size, in_channels, height, width = x.shape
 
-        out_height = (height + 2 * self.padding - self.kernel_size) // self.stride + 1
-        out_width = (width + 2 * self.padding - self.kernel_size) // self.stride + 1
+        height += 2 * self.padding
+        width += 2 * self.padding
 
-        W_flatten = np.reshape(self.W.data, (-1, self.out_channels))
+        out_height = 1 + (height - self.kernel_size) // self.stride
+        out_width = 1 + (width - self.kernel_size) // self.stride
+
+        w_flattened = np.transpose(self.weight.data, axes=(2, 3, 1, 0)).reshape((-1, self.out_channels))
 
         out = np.zeros(shape=(batch_size, self.out_channels, out_height, out_width))
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                input_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                input_region_flatten = np.reshape(input_region, (batch_size, -1))
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
 
-                output_feature_map = np.dot(input_region_flatten, W_flatten)
-                if self.B is not None:
-                    output_feature_map += self.B.data
+                input_region = x_padded[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size]
+                input_region_flattened = input_region.transpose((0, 2, 3, 1)).reshape((batch_size, -1))
 
-                out[:, :, y, x] = output_feature_map
+                out[:, :, oh, ow] = np.dot(input_region_flattened, w_flattened)
+                if self.bias is not None:
+                    out[:, :, oh, ow] += self.bias.data
 
         return out
 
@@ -199,27 +212,41 @@ class Conv2d(NnLayer):
         respect to output of forward pass.
         :return: numpy array (batch_size, in_channels, height, width) - gradient with respect to input.
         """
-        batch_size, out_channels, out_height, out_width = d_out.shape
+        batch_size, in_channels, height, width = self.x.shape
+        _, out_channels, out_height, out_width = d_out.shape
 
-        W_flatten = self.W.data.reshape(-1, self.out_channels)
-        W_flatten_grad = self.W.grad.reshape(-1, self.out_channels)
+        x_padded = np.pad(self.x, pad_width=self._padding_width)
 
-        d_pred = np.zeros_like(self.X)
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                output_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                output_region_flatten = np.reshape(output_region, (batch_size, -1))
-                pixel = d_out[:, :, y, x]
-                d_output_region_flatten = np.dot(pixel, W_flatten.T)
-                d_output_region = np.reshape(d_output_region_flatten, output_region.shape)
-                d_pred[:, :, y:y + self.kernel_size, x:x + self.kernel_size] += d_output_region
+        w_flattened = self.weight.data.transpose((2, 3, 1, 0)).reshape((-1, self.out_channels))
 
-                W_flatten_grad += np.dot(output_region_flatten.T, pixel)
+        self.weight.grad = np.zeros(shape=(self.kernel_size, self.kernel_size, in_channels, out_channels))
+        dw_flattened = self.weight.grad.reshape((-1, out_channels))
 
-        if self.B is not None:
-            self.B.grad = np.sum(d_out, axis=(0, 2, 3))
+        d_x = np.zeros_like(x_padded)
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
 
-        return d_pred[:, :, 1:-1, 1:-1]
+                input_region = x_padded[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size]
+                input_region_flattened = input_region.transpose((0, 2, 3, 1)).reshape((batch_size, -1))
+                d_out_pixel = d_out[:, :, oh, ow]
+
+                dw_flattened += np.dot(input_region_flattened.T, d_out_pixel)
+                dx_region_flattened = np.dot(d_out_pixel, w_flattened.T)
+                dx_region = np.transpose(
+                    dx_region_flattened.reshape((batch_size, self.kernel_size, self.kernel_size, in_channels)),
+                    axes=(0, 3, 1, 2)
+                )
+
+                d_x[:, :, oh_step:oh_step + self.kernel_size, ow_step: ow_step + self.kernel_size] += dx_region
+
+        if self.bias is not None:
+            self.bias.grad = np.sum(d_out, axis=(0, 2, 3))
+
+        self.weight.grad = self.weight.grad.transpose((3, 2, 0, 1))
+
+        return d_x[:, :, self.padding:height + self.padding, self.padding:width + self.padding]
 
     def params(self) -> dict[str, Value]:
         """
@@ -228,11 +255,11 @@ class Conv2d(NnLayer):
         :return: dict[str, Value] - layer parameters.
         """
         d = {
-            "W": self.W,
+            "W": self.weight,
         }
 
-        if self.B is not None:
-            d["B"] = self.B
+        if self.bias is not None:
+            d["B"] = self.bias
 
         return d
 
@@ -390,10 +417,13 @@ class MaxPool2d(Layer):
         out_width = (width + 2 * self.padding - self.kernel_size) // self.stride + 1
 
         out = np.zeros(shape=(batch_size, in_channels, out_height, out_width))
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                input_region = self.X[:, :, y:self.kernel_size + y, x:self.kernel_size + x]
-                out[:, :, y, x] += np.max(input_region, axis=(2, 3))
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
+
+                input_region = self.X[:, :, oh_step:self.kernel_size + oh_step, ow_step:self.kernel_size + ow_step]
+                out[:, :, oh, ow] += np.max(input_region, axis=(2, 3))
 
         return out
 
@@ -408,12 +438,15 @@ class MaxPool2d(Layer):
         _, in_channels, out_height, out_width = d_out.shape
 
         d_pred = np.zeros_like(self.X)
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                output_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                grad = d_out[:, :, y, x][:, :, np.newaxis, np.newaxis]
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
+
+                output_region = self.X[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size]
+                grad = d_out[:, :, oh, ow][:, :, np.newaxis, np.newaxis]
                 mask = (output_region == np.max(output_region, (2, 3))[:, :, np.newaxis, np.newaxis])
-                d_pred[:, :, y:y + self.kernel_size, x:x + self.kernel_size] += grad * mask
+                d_pred[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size] += grad * mask
 
         return d_pred
 
