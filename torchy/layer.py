@@ -12,6 +12,9 @@ class Layer(ABC):
     Abstract class that represents any layer behavior and also used for type-hinting.
     """
 
+    def __init__(self):
+        self._train = True
+
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
         Computes gradient with respect to input.
@@ -33,19 +36,23 @@ class Layer(ABC):
     def __call__(self, x: np.ndarray) -> np.ndarray:
         return self.forward(x)
 
+    def eval(self):
+        """
+        Set layer to evaluation mode
+        """
+        self._train = False
+
+    def train(self):
+        """
+        Set layer to training mode
+        """
+        self._train = True
+
 
 class NnLayer(Layer):
     """
     Another abstract class to represent layers that can hold parameters (weight & bias).
     """
-
-    def zero_grad(self):
-        """
-        Goes through all the parameters in layer and sets their gradient to zero.
-
-        :return: None
-        """
-        pass
 
     def params(self) -> dict[str, Value]:
         """
@@ -68,8 +75,10 @@ class Linear(NnLayer):
         :param n_output: int - size of each output sample.
         :param bias: bool - consider bias in layer computation or not
         """
+        super(Linear, self).__init__()
+
         self.W = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
-        self.B = Value(kaiming_init(n_input) * np.random.randn(1, n_output)) if bias else None
+        self.B = Value(np.zeros(shape=(1, n_output))) if bias else None
         self.X = None
         self.out = None
 
@@ -103,15 +112,6 @@ class Linear(NnLayer):
         d_pred = np.dot(d_out, self.W.data.T)
 
         return d_pred
-
-    def zero_grad(self):
-        """
-        Goes through layer parameters and zeroes their gradient
-
-        :return: None
-        """
-        for _, param in self.params().items():
-            param.grad = np.zeros_like(param.grad)
 
     def params(self) -> dict[str, Value]:
         """
@@ -152,9 +152,12 @@ class Conv2d(NnLayer):
         :param padding: int - padding added to all axes with respect to input (default = 0).
         :param bias: bool - consider bias in layer computation or not
         """
-        self.W = Value(np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
-        self.B = Value(np.zeros(out_channels)) if bias else None
-        self.X = None
+        super(Conv2d, self).__init__()
+
+        init_value = kaiming_init(in_channels * kernel_size * kernel_size)
+        self.weight = Value(init_value * np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
+        self.bias = Value(np.zeros(out_channels)) if bias else None
+        self.x = None
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -172,25 +175,31 @@ class Conv2d(NnLayer):
         :return: numpy array (batch_size, out_channels, out_height, out_width) - incoming data after
         performing convolution operation on it.
         """
-        self.X = np.pad(x, pad_width=self._padding_width, mode="constant", constant_values=0)
+        self.x = x
+        x_padded = np.pad(x, pad_width=self._padding_width)
+
         batch_size, in_channels, height, width = x.shape
 
-        out_height = (height + 2 * self.padding - self.kernel_size) // self.stride + 1
-        out_width = (width + 2 * self.padding - self.kernel_size) // self.stride + 1
+        height += 2 * self.padding
+        width += 2 * self.padding
 
-        W_flatten = np.reshape(self.W.data, (-1, self.out_channels))
+        out_height = 1 + (height - self.kernel_size) // self.stride
+        out_width = 1 + (width - self.kernel_size) // self.stride
+
+        w_flattened = np.transpose(self.weight.data, axes=(2, 3, 1, 0)).reshape((-1, self.out_channels))
 
         out = np.zeros(shape=(batch_size, self.out_channels, out_height, out_width))
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                input_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                input_region_flatten = np.reshape(input_region, (batch_size, -1))
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
 
-                output_feature_map = np.dot(input_region_flatten, W_flatten)
-                if self.B is not None:
-                    output_feature_map += self.B.data
+                input_region = x_padded[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size]
+                input_region_flattened = input_region.transpose((0, 2, 3, 1)).reshape((batch_size, -1))
 
-                out[:, :, y, x] = output_feature_map
+                out[:, :, oh, ow] = np.dot(input_region_flattened, w_flattened)
+                if self.bias is not None:
+                    out[:, :, oh, ow] += self.bias.data
 
         return out
 
@@ -203,27 +212,41 @@ class Conv2d(NnLayer):
         respect to output of forward pass.
         :return: numpy array (batch_size, in_channels, height, width) - gradient with respect to input.
         """
-        batch_size, out_channels, out_height, out_width = d_out.shape
+        batch_size, in_channels, height, width = self.x.shape
+        _, out_channels, out_height, out_width = d_out.shape
 
-        W_flatten = self.W.data.reshape(-1, self.out_channels)
-        W_flatten_grad = self.W.grad.reshape(-1, self.out_channels)
+        x_padded = np.pad(self.x, pad_width=self._padding_width)
 
-        d_pred = np.zeros_like(self.X)
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                output_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                output_region_flatten = np.reshape(output_region, (batch_size, -1))
-                pixel = d_out[:, :, y, x]
-                d_output_region_flatten = np.dot(pixel, W_flatten.T)
-                d_output_region = np.reshape(d_output_region_flatten, output_region.shape)
-                d_pred[:, :, y:y + self.kernel_size, x:x + self.kernel_size] += d_output_region
+        w_flattened = self.weight.data.transpose((2, 3, 1, 0)).reshape((-1, self.out_channels))
 
-                W_flatten_grad += np.dot(output_region_flatten.T, pixel)
+        self.weight.grad = np.zeros(shape=(self.kernel_size, self.kernel_size, in_channels, out_channels))
+        dw_flattened = self.weight.grad.reshape((-1, out_channels))
 
-        if self.B is not None:
-            self.B.grad = np.sum(d_out, axis=(0, 2, 3))
+        d_x = np.zeros_like(x_padded)
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
 
-        return d_pred[:, :, 1:-1, 1:-1]
+                input_region = x_padded[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size]
+                input_region_flattened = input_region.transpose((0, 2, 3, 1)).reshape((batch_size, -1))
+                d_out_pixel = d_out[:, :, oh, ow]
+
+                dw_flattened += np.dot(input_region_flattened.T, d_out_pixel)
+                dx_region_flattened = np.dot(d_out_pixel, w_flattened.T)
+                dx_region = np.transpose(
+                    dx_region_flattened.reshape((batch_size, self.kernel_size, self.kernel_size, in_channels)),
+                    axes=(0, 3, 1, 2)
+                )
+
+                d_x[:, :, oh_step:oh_step + self.kernel_size, ow_step: ow_step + self.kernel_size] += dx_region
+
+        if self.bias is not None:
+            self.bias.grad = np.sum(d_out, axis=(0, 2, 3))
+
+        self.weight.grad = self.weight.grad.transpose((3, 2, 0, 1))
+
+        return d_x[:, :, self.padding:height + self.padding, self.padding:width + self.padding]
 
     def params(self) -> dict[str, Value]:
         """
@@ -232,11 +255,11 @@ class Conv2d(NnLayer):
         :return: dict[str, Value] - layer parameters.
         """
         d = {
-            "W": self.W,
+            "W": self.weight,
         }
 
-        if self.B is not None:
-            d["B"] = self.B
+        if self.bias is not None:
+            d["B"] = self.bias
 
         return d
 
@@ -247,6 +270,8 @@ class ReLU(Layer):
     """
 
     def __init__(self):
+        super(ReLU, self).__init__()
+
         self._mask = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:
@@ -270,9 +295,9 @@ class ReLU(Layer):
         return d_out * self._mask
 
 
-class BatchNorm1d(NnLayer):
+class _BatchNorm(NnLayer):
     """
-    Batch Normalization for one-dimensional layers.
+    Base-like class for batch normalization
     """
 
     def __init__(self,
@@ -284,11 +309,13 @@ class BatchNorm1d(NnLayer):
         :param eps: float - value added to numerical stability in denominator.
         :param momentum: float - coefficient for computing running mean and variance
         """
+        super(_BatchNorm, self).__init__()
+
         self._out = None
         self._X_norm = None
         self._X_var = None
         self._X_mean = None
-        self.x = None
+        self._X = None
 
         self.eps = eps
         self.gamma = Value(np.ones(n_output))
@@ -298,14 +325,19 @@ class BatchNorm1d(NnLayer):
         self.running_mean = np.zeros(n_output)
         self.running_var = np.zeros(n_output)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def _forward_ndim(self, x: np.ndarray) -> np.ndarray:
         """
-        Forward pass of BatchNorm1d layer.
+        Forward pass of batch normalization layer.
 
         :param x: numpy array (batch_size, n_output) - incoming data.
         :return: numpy array (batch_size, n_output) - result of batchnorm processing.
         """
-        self.x = copy.deepcopy(x)
+        if not self._train:
+            eval_norm = (x - self.running_mean) / np.sqrt(self.running_var + self.eps)
+            self._out = self.gamma.data * eval_norm + self.beta.data
+            return self._out
+
+        self._X = copy.deepcopy(x)
 
         self._X_mean = np.mean(x, axis=0, keepdims=True)
         self._X_var = np.var(x, axis=0, keepdims=True)
@@ -313,12 +345,12 @@ class BatchNorm1d(NnLayer):
 
         self._out = self.gamma.data * self._X_norm + self.beta.data
 
-        self.running_mean = self.momentum * self.running_var + (1 - self.momentum) * self._X_mean
+        self.running_mean = self.momentum * self.running_mean + (1 - self.momentum) * self._X_mean
         self.running_var = self.momentum * self.running_var + (1 - self.momentum) * self._X_var
 
         return self._out
 
-    def backward(self, d_out: np.ndarray) -> np.ndarray:
+    def _backward_ndim(self, d_out: np.ndarray) -> np.ndarray:
         """
         Computes backward pass with respect to self.x, self.gamma and self.beta.
 
@@ -328,14 +360,14 @@ class BatchNorm1d(NnLayer):
         self.gamma.grad = (self._X_norm * d_out).sum(axis=0)
         self.beta.grad = d_out.sum(0)
 
-        batch_size = self.x.shape[0]
+        batch_size = self._X.shape[0]
 
         sqrt_var_eps = np.sqrt(self._X_var + self.eps)
         dxhat = d_out * self.gamma.data
-        dvar = np.sum(dxhat * (self.x - self._X_mean), axis=0) * (-1 / 2) * (self._X_var + self.eps) ** (-3 / 2)
-        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self.x - self._X_mean,
+        dvar = np.sum(dxhat * (self._X - self._X_mean), axis=0) * (-1 / 2) * (self._X_var + self.eps) ** (-3 / 2)
+        dmu = np.sum(dxhat * (-1 / sqrt_var_eps), axis=0) + dvar * (-2 / batch_size) * np.sum(self._X - self._X_mean,
                                                                                               axis=0)
-        dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self.x - self._X_mean) + dmu / batch_size
+        dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self._X - self._X_mean) + dmu / batch_size
         return dx
 
     def params(self) -> dict[str, Value]:
@@ -352,6 +384,63 @@ class BatchNorm1d(NnLayer):
         return d
 
 
+class BatchNorm1d(_BatchNorm):
+    """
+    Batch Normalization for one-dimensional layers.
+    """
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Forward pass of BatchNorm1d layer.
+
+        :param x: numpy array (batch_size, n_output) - incoming data.
+        :return: numpy array (batch_size, n_output) - result of batchnorm processing.
+        """
+        return self._forward_ndim(x)
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to self.x, self.gamma and self.beta.
+
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
+        :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
+        """
+        return self._backward_ndim(d_out)
+
+
+class BatchNorm2d(_BatchNorm):
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Forward pass of BatchNorm2d layer.
+
+        Transforms input data to a two-dimensional array and basically calculates
+        batch normalization in one-dimensional representation via _forward_ndim().
+
+        After performing calculation, transforms output data to appropriate shape.
+
+        :param x: numpy array (batch_size, in_channels, height, width) - incoming data.
+        :return: numpy array (batch_size, in_channels, height, width) - result of batchnorm processing.
+        """
+        batch_size, in_channels, height, width = x.shape
+        x_reshaped = x.transpose((0, 2, 3, 1)).reshape((-1, in_channels))
+        out = self._forward_ndim(x_reshaped)
+        return out.reshape((batch_size, height, width, in_channels)).transpose((0, 3, 1, 2))
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to self.x, self.gamma and self.beta.
+
+        In terms of shape, d_out acts the same as x in forward pass.
+
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
+        :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
+        """
+        batch_size, in_channels, height, width = d_out.shape
+        d_out_reshaped = d_out.transpose((0, 2, 3, 1)).reshape((-1, in_channels))
+        dx = self._backward_ndim(d_out_reshaped)
+        return dx.reshape((batch_size, height, width, in_channels)).transpose((0, 3, 1, 2))
+
+
 class MaxPool2d(Layer):
     """
     Max pooling layer for 2-dimensional input (Convolutional Layer).
@@ -363,8 +452,9 @@ class MaxPool2d(Layer):
         :param stride: int - stride of max pooling  kernel (default = kernel_size).
         :param padding: int = padding added to all axis with respect to input (default = 0).
         """
-        self.X = None
+        super(MaxPool2d, self).__init__()
 
+        self.X = None
         self.kernel_size = kernel_size
         self.stride = stride if stride is not None else kernel_size
         self.padding = padding
@@ -384,10 +474,13 @@ class MaxPool2d(Layer):
         out_width = (width + 2 * self.padding - self.kernel_size) // self.stride + 1
 
         out = np.zeros(shape=(batch_size, in_channels, out_height, out_width))
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                input_region = self.X[:, :, y:self.kernel_size + y, x:self.kernel_size + x]
-                out[:, :, y, x] += np.max(input_region, axis=(2, 3))
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
+
+                input_region = self.X[:, :, oh_step:self.kernel_size + oh_step, ow_step:self.kernel_size + ow_step]
+                out[:, :, oh, ow] += np.max(input_region, axis=(2, 3))
 
         return out
 
@@ -402,11 +495,53 @@ class MaxPool2d(Layer):
         _, in_channels, out_height, out_width = d_out.shape
 
         d_pred = np.zeros_like(self.X)
-        for y in range(0, out_height, self.stride):
-            for x in range(0, out_width, self.stride):
-                output_region = self.X[:, :, y:y + self.kernel_size, x:x + self.kernel_size]
-                grad = d_out[:, :, y, x][:, :, np.newaxis, np.newaxis]
+        for oh in range(out_height):
+            for ow in range(out_width):
+                oh_step = self.stride * oh
+                ow_step = self.stride * ow
+
+                output_region = self.X[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size]
+                grad = d_out[:, :, oh, ow][:, :, np.newaxis, np.newaxis]
                 mask = (output_region == np.max(output_region, (2, 3))[:, :, np.newaxis, np.newaxis])
-                d_pred[:, :, y:y + self.kernel_size, x:x + self.kernel_size] += grad * mask
+                d_pred[:, :, oh_step:oh_step + self.kernel_size, ow_step:ow_step + self.kernel_size] += grad * mask
 
         return d_pred
+
+
+class Dropout(Layer):
+    """
+    Inverted dropout
+    """
+
+    def __init__(self, p: float = 0.5):
+        """
+        :param p: float - probability of keeping each neuron
+        """
+        super(Dropout, self).__init__()
+
+        self.p = p
+        self.mask = None
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Performs forward pass for inverted dropout.
+
+        :param x: numpy array (n-dimensional) - incoming data.
+        :return: numpy array (n-dimensional) - output data, same shape as incoming data
+        """
+        out = x.copy()
+        if self._train:
+            self.mask = (np.random.rand(*x.shape) < self.p) / self.p
+            out *= self.mask
+
+        return out
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to forward pass input.
+
+        :param d_out: numpy array (n-dimensional) - gradient of loss with respect to output of forward pass
+        :return: numpy array (n-dinemsional) - gradient with respect to input, same shape as forward pass input
+        """
+
+        return d_out * self.mask
