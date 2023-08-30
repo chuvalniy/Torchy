@@ -1,7 +1,7 @@
 import numpy as np
 
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d
 
 
 def test_conv2d_forward():
@@ -52,3 +52,69 @@ def test_maxpool2d_forward():
                               [0.38526316, 0.4]]]])
 
     assert rel_error(out, correct_out) <= 1e-7
+
+
+def test_batchnorm2d_train_forward():
+    np.random.seed(231)
+
+    # Check the training-time forward pass by checking means and variances
+    # of features both before and after spatial batch normalization.
+    N, C, H, W = 2, 3, 4, 5
+    x = 4 * np.random.randn(N, C, H, W) + 10
+
+    print('Before spatial batch normalization:')
+    print('  shape: ', x.shape)
+    print('  means: ', x.mean(axis=(0, 2, 3)))
+    print('  stds: ', x.std(axis=(0, 2, 3)))
+
+    # Means should be close to zero and stds close to one
+    gamma, beta = np.ones(C), np.zeros(C)
+    batch_norm = BatchNorm2d(n_output=C)
+    batch_norm.gamma.data = gamma
+    batch_norm.beta.data = beta
+    out = batch_norm(x)
+    print('After spatial batch normalization:')
+    print('  shape: ', out.shape)
+    print('  means: ', out.mean(axis=(0, 2, 3)))
+    print('  stds: ', out.std(axis=(0, 2, 3)))
+
+    # Means should be close to beta and stds close to gamma
+    gamma, beta = np.asarray([3, 4, 5]), np.asarray([6, 7, 8])
+    batch_norm = BatchNorm2d(n_output=C)
+    batch_norm.gamma.data = gamma
+    batch_norm.beta.data = beta
+    out = batch_norm(x)
+    print('After spatial batch normalization (nontrivial gamma, beta):')
+    print('  shape: ', out.shape)
+    print('  means: ', out.mean(axis=(0, 2, 3)))
+    print('  stds: ', out.std(axis=(0, 2, 3)))
+
+
+def test_batchnorm2d_test_forward():
+    np.random.seed(231)
+
+    # Check the test-time forward pass by running the training-time
+    # forward pass many times to warm up the running averages, and then
+    # checking the means and variances of activations after a test-time
+    # forward pass.
+    N, C, H, W = 10, 4, 11, 12
+
+    gamma = np.ones(C)
+    beta = np.zeros(C)
+    batch_norm = BatchNorm2d(n_output=C)
+    batch_norm.gamma.data = gamma
+    batch_norm.beta.data = beta
+
+    for t in range(50):
+        x = 2.3 * np.random.randn(N, C, H, W) + 13
+        batch_norm(x)
+
+    x = 2.3 * np.random.randn(N, C, H, W) + 13
+    batch_norm._train = False
+    out = batch_norm(x)
+
+    # Means should be close to zero and stds close to one, but will be
+    # noisier than training-time forward passes.
+    print('After spatial batch normalization (test-time):')
+    print('  means: ', out.mean(axis=(0, 2, 3)))
+    print('  stds: ', out.std(axis=(0, 2, 3)))

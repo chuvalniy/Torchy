@@ -295,9 +295,9 @@ class ReLU(Layer):
         return d_out * self._mask
 
 
-class BatchNorm1d(NnLayer):
+class _BatchNorm(NnLayer):
     """
-    Batch Normalization for one-dimensional layers.
+    Base-like class for batch normalization
     """
 
     def __init__(self,
@@ -309,7 +309,7 @@ class BatchNorm1d(NnLayer):
         :param eps: float - value added to numerical stability in denominator.
         :param momentum: float - coefficient for computing running mean and variance
         """
-        super(BatchNorm1d, self).__init__()
+        super(_BatchNorm, self).__init__()
 
         self._out = None
         self._X_norm = None
@@ -325,9 +325,9 @@ class BatchNorm1d(NnLayer):
         self.running_mean = np.zeros(n_output)
         self.running_var = np.zeros(n_output)
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def _forward_ndim(self, x: np.ndarray) -> np.ndarray:
         """
-        Forward pass of BatchNorm1d layer.
+        Forward pass of batch normalization layer.
 
         :param x: numpy array (batch_size, n_output) - incoming data.
         :return: numpy array (batch_size, n_output) - result of batchnorm processing.
@@ -345,14 +345,14 @@ class BatchNorm1d(NnLayer):
 
         self._out = self.gamma.data * self._X_norm + self.beta.data
 
-        self.running_mean = self.momentum * self.running_var + (1 - self.momentum) * self._X_mean
+        self.running_mean = self.momentum * self.running_mean + (1 - self.momentum) * self._X_mean
         self.running_var = self.momentum * self.running_var + (1 - self.momentum) * self._X_var
 
         return self._out
 
-    def backward(self, d_out: np.ndarray) -> np.ndarray:
+    def _backward_ndim(self, d_out: np.ndarray) -> np.ndarray:
         """
-        Computes backward pass with respect to x, gamma and beta.
+        Computes backward pass with respect to self.x, self.gamma and self.beta.
 
         :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
         :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
@@ -382,6 +382,63 @@ class BatchNorm1d(NnLayer):
         }
 
         return d
+
+
+class BatchNorm1d(_BatchNorm):
+    """
+    Batch Normalization for one-dimensional layers.
+    """
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Forward pass of BatchNorm1d layer.
+
+        :param x: numpy array (batch_size, n_output) - incoming data.
+        :return: numpy array (batch_size, n_output) - result of batchnorm processing.
+        """
+        return self._forward_ndim(x)
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to self.x, self.gamma and self.beta.
+
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
+        :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
+        """
+        return self._backward_ndim(d_out)
+
+
+class BatchNorm2d(_BatchNorm):
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        Forward pass of BatchNorm2d layer.
+
+        Transforms input data to a two-dimensional array and basically calculates
+        batch normalization in one-dimensional representation via _forward_ndim().
+
+        After performing calculation, transforms output data to appropriate shape.
+
+        :param x: numpy array (batch_size, in_channels, height, width) - incoming data.
+        :return: numpy array (batch_size, in_channels, height, width) - result of batchnorm processing.
+        """
+        batch_size, in_channels, height, width = x.shape
+        x_reshaped = x.transpose((0, 2, 3, 1)).reshape((-1, in_channels))
+        out = self._forward_ndim(x_reshaped)
+        return out.reshape((batch_size, height, width, in_channels)).transpose((0, 3, 1, 2))
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to self.x, self.gamma and self.beta.
+
+        In terms of shape, d_out acts the same as x in forward pass.
+
+        :param d_out: numpy array (batch_size, n_output) - gradient of loss function with respect to forward pass.
+        :return: numpy array (batch_size, n_output) - gradient with respect to self.x.
+        """
+        batch_size, in_channels, height, width = d_out.shape
+        d_out_reshaped = d_out.transpose((0, 2, 3, 1)).reshape((-1, in_channels))
+        dx = self._backward_ndim(d_out_reshaped)
+        return dx.reshape((batch_size, height, width, in_channels)).transpose((0, 3, 1, 2))
 
 
 class MaxPool2d(Layer):

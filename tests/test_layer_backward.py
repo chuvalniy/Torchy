@@ -2,7 +2,7 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d
 
 
 def test_conv2d_backward():
@@ -20,7 +20,7 @@ def test_conv2d_backward():
     dw_num = eval_numerical_gradient_array(lambda w: conv(x), w, dout)
     db_num = eval_numerical_gradient_array(lambda b: conv(x), b, dout)
 
-    _ = conv(x)
+    conv(x)
     dx = conv.backward(dout)
 
     assert rel_error(dx, dx_num) <= 1e-8
@@ -38,4 +38,32 @@ def test_maxpool2d_backward():
     dx_num = eval_numerical_gradient_array(lambda x: pool(x), x, dout)
     dx = pool.backward(dout)
 
-    assert  rel_error(dx, dx_num) <= 1e-11
+    assert rel_error(dx, dx_num) <= 1e-11
+
+
+def test_batchnorm2d_backward():
+    np.random.seed(231)
+    N, C, H, W = 2, 3, 4, 5
+    x = 5 * np.random.randn(N, C, H, W) + 12
+    gamma = np.random.randn(C)
+    beta = np.random.randn(C)
+    dout = np.random.randn(N, C, H, W)
+
+    batchnorm = BatchNorm2d(C)
+    batchnorm.gamma.data = gamma
+    batchnorm.beta.data = beta
+
+    fx = lambda x: batchnorm(x)
+    fg = lambda a: batchnorm(x)
+    fb = lambda b: batchnorm(x)
+
+    dx_num = eval_numerical_gradient_array(fx, x, dout)
+    da_num = eval_numerical_gradient_array(fg, gamma, dout)
+    db_num = eval_numerical_gradient_array(fb, beta, dout)
+
+    batchnorm(x)
+    dx = batchnorm.backward(dout)
+
+    assert rel_error(dx_num, dx) <= 1e-5
+    assert rel_error(da_num, batchnorm.gamma.grad) <= 1e-11
+    assert rel_error(db_num, batchnorm.beta.grad) <= 1e-11
