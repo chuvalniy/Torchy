@@ -3,7 +3,7 @@ from abc import ABC
 
 import numpy as np
 
-from tools import kaiming_init
+from torchy.tools import kaiming_init
 from torchy.value import Value
 
 

@@ -7,20 +7,20 @@ from torchy.optim import _Optim
 
 class _Scheduler(ABC):
     """
-    Abstract class for scheduler algorithm
+    Abstract class for scheduler algorithm.
     """
 
     def __init__(self, optimizer: _Optim, verbose: bool = False):
         """
-        :param optimizer: _Optim - gradient descent optimizer
-        :param verbose: bool - on/off logging every scheduler step
+        :param optimizer: _Optim - gradient descent optimizer.
+        :param verbose: bool - on/off logging every scheduler step.
         """
         self.optimizer = optimizer
         self.verbose = verbose
 
     def step(self, *args, **kwargs):
         """
-        Abstract method for scheduler step
+        Abstract method for scheduler step.
 
         :param args:
         :param kwargs:
@@ -30,15 +30,15 @@ class _Scheduler(ABC):
 
 class StepLR(_Scheduler):
     """
-    Decays learning rate of optimizer every self.step_size by self.gamma
+    Decays learning rate of optimizer every self.step_size by self.gamma.
     """
 
     def __init__(self, optimizer: _Optim, step_size: int, gamma: float = 1e-1, verbose: bool = False):
         """
-        :param optimizer:  _Optim - gradient descent optimizer
-        :param step_size: int - number of steps until decaying learning rate
-        :param gamma: float - learning rate decay factor
-        :param verbose: on/off logging every scheduler step
+        :param optimizer:  _Optim - gradient descent optimizer.
+        :param step_size: int - number of steps until decaying learning rate.
+        :param gamma: float - learning rate decay factor.
+        :param verbose: on/off logging every scheduler step.
         """
         super().__init__(optimizer=optimizer, verbose=verbose)
         self.step_size = step_size
@@ -47,7 +47,7 @@ class StepLR(_Scheduler):
 
     def step(self):
         """
-        Counts number of epochs and decays learning rate based on current number of epochs and step_size
+        Counts number of epochs and decays learning rate based on the current number of epochs and step_size.
         """
         self._epoch += 1
 
@@ -65,11 +65,11 @@ class ReduceLROnPlateau(_Scheduler):
     def __init__(self, optimizer: _Optim, factor: float = 1e-1, patience: int = 5, verbose: bool = False,
                  threshold: float = 1e-4):
         """
-        :param optimizer: _Optim - gradient descent optimizer
-        :param factor: float - learning rate decay factor
-        :param patience: int - number of iterations without improvement
-        :param verbose: bool - on/off logging every scheduler step
-        :param threshold: float - measurement to focus only on significant improvements
+        :param optimizer: _Optim - gradient descent optimizer.
+        :param factor: float - learning rate decay factor.
+        :param patience: int - number of iterations without improvement.
+        :param verbose: bool - on/off logging every scheduler step.
+        :param threshold: float - measurement to focus only on significant improvements.
         """
         super().__init__(optimizer=optimizer, verbose=verbose)
         self.factor = factor
@@ -80,10 +80,10 @@ class ReduceLROnPlateau(_Scheduler):
 
     def step(self, loss: float):
         """
-        Increases self.wait by 1 if error is not improving and decays learning rate
-        of the optimizer of self.wait >= self.patience
+        Increases self.wait by 1 if error is not improving and decays learning rate.
+        of the optimizer of self.wait >= self.patience.
 
-        :param loss: current value of the model error
+        :param loss: current value of the model error.
         """
         if loss < self.best_loss - self.threshold:
             self.best_loss = loss

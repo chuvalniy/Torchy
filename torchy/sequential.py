@@ -2,8 +2,8 @@ import copy
 
 import numpy as np
 
-from layer import Layer, NnLayer
-from value import Value
+from torchy.layer import Layer, NnLayer
+from torchy.value import Value
 
 
 class Sequential(Layer):
