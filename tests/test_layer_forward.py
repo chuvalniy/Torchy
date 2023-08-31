@@ -1,7 +1,7 @@
 import numpy as np
 
 from tests.utils import rel_error, print_mean_std
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU
 
 
 def test_linear_forward():
@@ -28,6 +28,21 @@ def test_linear_forward():
                             [3.25553199, 3.5141327, 3.77273342]])
 
     assert rel_error(out, correct_out) <= 1e-9
+
+
+def test_relu_forward():
+    # Test the relu_forward function
+
+    x = np.linspace(-0.5, 0.5, num=12).reshape(3, 4)
+
+    relu = ReLU()
+    out = relu(x)
+    correct_out = np.array([[0., 0., 0., 0., ],
+                            [0., 0., 0.04545455, 0.13636364, ],
+                            [0.22727273, 0.31818182, 0.40909091, 0.5, ]])
+
+    # Compare your output with ours. The error should be on the order of e-8
+    assert rel_error(out, correct_out) <= 1e-7
 
 
 def test_conv2d_forward():

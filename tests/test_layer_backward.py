@@ -2,7 +2,7 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU
 
 
 def test_linear_backward():
@@ -29,6 +29,20 @@ def test_linear_backward():
     assert rel_error(dx_num, dx) <= 1e-10
     assert rel_error(dw_num, linear.weight.grad) <= 1e-10
     assert rel_error(db_num, linear.bias.grad) <= 1e-10
+
+
+def test_relu_backward():
+    np.random.seed(231)
+    x = np.random.randn(10, 10)
+    dout = np.random.randn(*x.shape)
+
+    relu = ReLU()
+    dx_num = eval_numerical_gradient_array(lambda x: relu(x), x, dout)
+
+    relu(x)
+    dx = relu.backward(dout)
+
+    assert rel_error(dx_num, dx) <= 1e-11
 
 
 def test_conv2d_backward():
