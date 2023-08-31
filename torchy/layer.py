@@ -513,13 +513,15 @@ class Dropout(Layer):
     Inverted dropout
     """
 
-    def __init__(self, p: float = 0.5):
+    def __init__(self, p: float = 0.5, seed: int = None):
         """
-        :param p: float - probability of keeping each neuron
+        :param p: float - probability of keeping each neuron.
+        :param seed: int - parameter for data representativity (default None).
         """
         super(Dropout, self).__init__()
-
         self.p = p
+        self.seed = np.random.seed(seed) if seed else None
+
         self.mask = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:

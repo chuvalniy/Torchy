@@ -1,7 +1,7 @@
 import numpy as np
 
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout
 
 
 def test_conv2d_forward():
@@ -118,3 +118,23 @@ def test_batchnorm2d_test_forward():
     print('After spatial batch normalization (test-time):')
     print('  means: ', out.mean(axis=(0, 2, 3)))
     print('  stds: ', out.std(axis=(0, 2, 3)))
+
+
+def test_dropout_forward():
+    np.random.seed(231)
+    x = np.random.randn(500, 500) + 10
+
+    for p in [0.25, 0.4, 0.7]:
+        dropout = Dropout(p)
+        out = dropout(x)
+
+        dropout._train = False
+        out_test = dropout(x)
+
+        print('Running tests with p = ', p)
+        print('Mean of input: ', x.mean())
+        print('Mean of train-time output: ', out.mean())
+        print('Mean of test-time output: ', out_test.mean())
+        print('Fraction of train-time output set to zero: ', (out == 0).mean())
+        print('Fraction of test-time output set to zero: ', (out_test == 0).mean())
+        print()

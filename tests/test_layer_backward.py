@@ -2,7 +2,7 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout
 
 
 def test_conv2d_backward():
@@ -67,3 +67,17 @@ def test_batchnorm2d_backward():
     assert rel_error(dx_num, dx) <= 1e-5
     assert rel_error(da_num, batchnorm.gamma.grad) <= 1e-11
     assert rel_error(db_num, batchnorm.beta.grad) <= 1e-11
+
+
+def test_dropout_backward():
+    np.random.seed(231)
+    x = np.random.randn(10, 10) + 10
+    dout = np.random.randn(*x.shape)
+
+    dropout = Dropout(0.2, seed=123)
+    dropout(x)
+    dx = dropout.backward(dout)
+    dx_num = eval_numerical_gradient_array(lambda xx: Dropout(0.2, seed=123)(xx), x, dout)
+
+    # Error should be around e-10 or less.
+    assert rel_error(dx, dx_num) <= 1e-10
