@@ -77,8 +77,8 @@ class Linear(NnLayer):
         """
         super(Linear, self).__init__()
 
-        self.W = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
-        self.B = Value(np.zeros(shape=(1, n_output))) if bias else None
+        self.weight = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
+        self.bias = Value(np.zeros(shape=(1, n_output))) if bias else None
         self.X = None
         self.out = None
 
@@ -90,10 +90,10 @@ class Linear(NnLayer):
         :return: numpy array (batch_size, n_output) - incoming data after linear transformation.
         """
         self.X = copy.deepcopy(x)
-        self.out = np.dot(self.X, self.W.data)
+        self.out = np.dot(self.X, self.weight.data)
 
-        if self.B is not None:
-            self.out += self.B.data
+        if self.bias is not None:
+            self.out += self.bias.data
 
         return self.out
 
@@ -104,12 +104,12 @@ class Linear(NnLayer):
         :param d_out: numpy array (batch_size, n_output) - gradient of loss with respect to an output.
         :return: numpy array (batch_size, n_input) - gradient with respect to input.
         """
-        self.W.grad = np.dot(self.X.T, d_out)
+        self.weight.grad = np.dot(self.X.T, d_out)
 
-        if self.B is not None:
-            self.B.grad = np.sum(d_out, axis=0).T
+        if self.bias is not None:
+            self.bias.grad = np.sum(d_out, axis=0).T
 
-        d_pred = np.dot(d_out, self.W.data.T)
+        d_pred = np.dot(d_out, self.weight.data.T)
 
         return d_pred
 
@@ -121,11 +121,11 @@ class Linear(NnLayer):
         """
 
         d = {
-            "W": self.W,
+            "W": self.weight,
         }
 
-        if self.B is not None:
-            d["B"] = self.B
+        if self.bias is not None:
+            d["B"] = self.bias
 
         return d
 
@@ -513,13 +513,15 @@ class Dropout(Layer):
     Inverted dropout
     """
 
-    def __init__(self, p: float = 0.5):
+    def __init__(self, p: float = 0.5, seed: int = None):
         """
-        :param p: float - probability of keeping each neuron
+        :param p: float - probability of keeping each neuron.
+        :param seed: int - parameter for data representativity (default None).
         """
         super(Dropout, self).__init__()
-
         self.p = p
+        self.seed = np.random.seed(seed) if seed else None
+
         self.mask = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:

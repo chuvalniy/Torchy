@@ -1,7 +1,48 @@
 import numpy as np
 
-from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d
+from tests.utils import rel_error, print_mean_std
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU
+
+
+def test_linear_forward():
+    # Test the affine_forward function
+
+    num_inputs = 2
+    input_shape = (4, 5, 6)
+    output_dim = 3
+
+    input_size = num_inputs * np.prod(input_shape)
+    weight_size = output_dim * np.prod(input_shape)
+
+    x = np.linspace(-0.1, 0.5, num=input_size).reshape(num_inputs, *input_shape)
+    w = np.linspace(-0.2, 0.3, num=weight_size).reshape(np.prod(input_shape), output_dim)
+    b = np.linspace(-0.3, 0.1, num=output_dim)
+
+    x = np.reshape(x, (x.shape[0], -1))
+    linear = Linear(input_size, output_dim)
+    linear.weight.data = w
+    linear.bias.data = b
+
+    out = linear(x)
+    correct_out = np.array([[1.49834967, 1.70660132, 1.91485297],
+                            [3.25553199, 3.5141327, 3.77273342]])
+
+    assert rel_error(out, correct_out) <= 1e-9
+
+
+def test_relu_forward():
+    # Test the relu_forward function
+
+    x = np.linspace(-0.5, 0.5, num=12).reshape(3, 4)
+
+    relu = ReLU()
+    out = relu(x)
+    correct_out = np.array([[0., 0., 0., 0., ],
+                            [0., 0., 0.04545455, 0.13636364, ],
+                            [0.22727273, 0.31818182, 0.40909091, 0.5, ]])
+
+    # Compare your output with ours. The error should be on the order of e-8
+    assert rel_error(out, correct_out) <= 1e-7
 
 
 def test_conv2d_forward():
@@ -52,6 +93,77 @@ def test_maxpool2d_forward():
                               [0.38526316, 0.4]]]])
 
     assert rel_error(out, correct_out) <= 1e-7
+
+
+def test_batchnorm1d_train_forward():
+    # Check the training-time forward pass by checking means and variances
+    # of features both before and after batch normalization
+
+    # Simulate the forward pass for a two-layer network.
+    np.random.seed(231)
+    N, D1, D2, D3 = 200, 50, 60, 3
+    X = np.random.randn(N, D1)
+    W1 = np.random.randn(D1, D2)
+    W2 = np.random.randn(D2, D3)
+    a = np.maximum(0, X.dot(W1)).dot(W2)
+
+    print('Before batch normalization:')
+    print_mean_std(a, axis=0)
+
+    gamma = np.ones((D3,))
+    beta = np.zeros((D3,))
+
+    # Means should be close to zero and stds close to one.
+    print('After batch normalization (gamma=1, beta=0)')
+    batchnorm = BatchNorm1d(D3)
+    batchnorm.gamma.data = gamma
+    batchnorm.beta.data = beta
+    a_norm = batchnorm(a)
+    print_mean_std(a_norm, axis=0)
+
+    gamma = np.asarray([1.0, 2.0, 3.0])
+    beta = np.asarray([11.0, 12.0, 13.0])
+
+    # Now means should be close to beta and stds close to gamma.
+    batchnorm = BatchNorm1d(D3)
+    batchnorm.gamma.data = gamma
+    batchnorm.beta.data = beta
+    print('After batch normalization (gamma=', gamma, ', beta=', beta, ')')
+    a_norm = batchnorm(a)
+    print_mean_std(a_norm, axis=0)
+
+
+def test_batchnorm1d_test_forward():
+    # Check the test-time forward pass by running the training-time
+    # forward pass many times to warm up the running averages, and then
+    # checking the means and variances of activations after a test-time
+    # forward pass.
+
+    np.random.seed(231)
+    N, D1, D2, D3 = 200, 50, 60, 3
+    W1 = np.random.randn(D1, D2)
+    W2 = np.random.randn(D2, D3)
+
+    gamma = np.ones(D3)
+    beta = np.zeros(D3)
+
+    batchnorm = BatchNorm1d(D3)
+    batchnorm.gamma.data = gamma
+    batchnorm.beta.data = beta
+    for t in range(50):
+        X = np.random.randn(N, D1)
+        a = np.maximum(0, X.dot(W1)).dot(W2)
+        batchnorm(a)
+
+    batchnorm._train = False
+    X = np.random.randn(N, D1)
+    a = np.maximum(0, X.dot(W1)).dot(W2)
+    a_norm = batchnorm(a)
+
+    # Means should be close to zero and stds close to one, but will be
+    # noisier than training-time forward passes.
+    print('After batch normalization (test-time):')
+    print_mean_std(a_norm, axis=0)
 
 
 def test_batchnorm2d_train_forward():
@@ -118,3 +230,23 @@ def test_batchnorm2d_test_forward():
     print('After spatial batch normalization (test-time):')
     print('  means: ', out.mean(axis=(0, 2, 3)))
     print('  stds: ', out.std(axis=(0, 2, 3)))
+
+
+def test_dropout_forward():
+    np.random.seed(231)
+    x = np.random.randn(500, 500) + 10
+
+    for p in [0.25, 0.4, 0.7]:
+        dropout = Dropout(p)
+        out = dropout(x)
+
+        dropout._train = False
+        out_test = dropout(x)
+
+        print('Running tests with p = ', p)
+        print('Mean of input: ', x.mean())
+        print('Mean of train-time output: ', out.mean())
+        print('Mean of test-time output: ', out_test.mean())
+        print('Fraction of train-time output set to zero: ', (out == 0).mean())
+        print('Fraction of test-time output set to zero: ', (out_test == 0).mean())
+        print()
