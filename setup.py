@@ -13,6 +13,7 @@ setup(
     author_email="chuvalik.work@gmail.com",
     description=DESCRIPTION,
     long_description=long_description,
+    long_description_content_type="text/markdown",
     packages=find_packages(),
     url="https://github.com/chuvalniy/Torchy",
     install_requires=['numpy', 'scikit-learn', 'pytest'],
