@@ -2,7 +2,33 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear
+
+
+def test_linear_backward():
+    # Test the affine_backward function
+    np.random.seed(231)
+    x = np.random.randn(10, 2, 3)
+    w = np.random.randn(6, 5)
+    b = np.random.randn(5)
+    dout = np.random.randn(10, 5)
+
+    linear = Linear(x.shape[0], w.shape[1])
+    linear.weight.data = w
+    linear.bias.data = b
+
+    x = np.reshape(x, (x.shape[0], -1))
+
+    dx_num = eval_numerical_gradient_array(lambda x: linear(x), x, dout)
+    dw_num = eval_numerical_gradient_array(lambda w: linear(x), w, dout)
+    db_num = eval_numerical_gradient_array(lambda b: linear(x), b, dout)
+
+    linear(x)
+    dx = linear.backward(dout)
+
+    assert rel_error(dx_num, dx) <= 1e-10
+    assert rel_error(dw_num, linear.weight.grad) <= 1e-10
+    assert rel_error(db_num, linear.bias.grad) <= 1e-10
 
 
 def test_conv2d_backward():
