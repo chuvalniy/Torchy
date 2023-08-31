@@ -134,7 +134,7 @@ class RMSProp(_Optim):
     RMSProp gradient optimization algorithm.
     """
 
-    def __init__(self, params: dict[str, Value], lr: float = 1e-2, weight_decay: float = 0.0, rho: float = 0.9,
+    def __init__(self, params: dict[str, Value], lr: float = 1e-2, weight_decay: float = 0.0, rho: float = 0.99,
                  eps: float = 1e-8):
         """
         :param params: dict (parameter_name, parameter) - contains all neural network parameters wrapped.
