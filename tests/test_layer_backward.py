@@ -2,7 +2,7 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d
 
 
 def test_conv2d_backward():
@@ -39,6 +39,36 @@ def test_maxpool2d_backward():
     dx = pool.backward(dout)
 
     assert rel_error(dx, dx_num) <= 1e-11
+
+
+def test_batchnorm1d_backward():
+    # Gradient check batchnorm backward pass.
+    np.random.seed(231)
+    N, D = 4, 5
+    x = 5 * np.random.randn(N, D) + 12
+    gamma = np.random.randn(D)
+    beta = np.random.randn(D)
+    dout = np.random.randn(N, D)
+
+    batchnorm = BatchNorm1d(D)
+    batchnorm.gamma.data = gamma
+    batchnorm.beta.data = beta
+
+    fx = lambda x: batchnorm(x)
+    fg = lambda a: batchnorm(x)
+    fb = lambda b: batchnorm(x)
+
+    dx_num = eval_numerical_gradient_array(fx, x, dout)
+    da_num = eval_numerical_gradient_array(fg, gamma, dout)
+    db_num = eval_numerical_gradient_array(fb, beta, dout)
+
+    batchnorm(x)
+    dx = batchnorm.backward(dout)
+
+    # You should expect to see relative errors between 1e-13 and 1e-8.
+    assert rel_error(dx_num, dx) < 1e-8
+    assert rel_error(da_num, batchnorm.gamma.grad) < 1e-11
+    assert rel_error(db_num, batchnorm.beta.grad) < 1e-11
 
 
 def test_batchnorm2d_backward():
