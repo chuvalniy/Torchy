@@ -2,7 +2,8 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN
+from value import Value
 
 
 def test_linear_backward():
@@ -66,6 +67,43 @@ def test_conv2d_backward():
     assert rel_error(dx, dx_num) <= 1e-8
     assert rel_error(conv.weight.grad, dw_num) <= 1e-8
     assert rel_error(conv.bias.grad, db_num) <= 1e-8
+
+
+def test_rnn_vanilla_backward():
+    np.random.seed(231)
+
+    N, D, T, H = 2, 3, 10, 5
+
+    x = np.random.randn(N, T, D)
+    h0 = np.random.randn(N, H)
+    Wx = np.random.randn(D, H)
+    Wh = np.random.randn(H, H)
+    b = np.random.randn(H)
+
+    rnn = RNN(D, H)
+    rnn.weight_xh.data = Wx
+    rnn.weight_hh.data = Wh
+    rnn.bias.data = b
+    out = rnn(x, h0)
+
+    dout = np.random.randn(*out.shape)
+
+    dx = rnn.backward(dout)
+
+    fx = lambda x: rnn(x, h0)
+    fWx = lambda Wx: rnn(x, h0)
+    fWh = lambda Wh: rnn(x, h0)
+    fb = lambda b: rnn(x, h0)
+
+    dx_num = eval_numerical_gradient_array(fx, x, dout)
+    dWx_num = eval_numerical_gradient_array(fWx, Wx, dout)
+    dWh_num = eval_numerical_gradient_array(fWh, Wh, dout)
+    db_num = eval_numerical_gradient_array(fb, b, dout)
+
+    print('dx error: ', rel_error(dx_num, dx))
+    print('dWx error: ', rel_error(dWx_num, rnn.weight_xh.grad))
+    print('dWh error: ', rel_error(dWh_num, rnn.weight_hh.grad))
+    print('db error: ', rel_error(db_num, rnn.bias.grad))
 
 
 def test_maxpool2d_backward():

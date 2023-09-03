@@ -1,7 +1,8 @@
 import numpy as np
 
 from tests.utils import rel_error, print_mean_std
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU
+from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN
+from torchy.value import Value
 
 
 def test_linear_forward():
@@ -70,6 +71,33 @@ def test_conv2d_forward():
                               [2.38090835, 2.38247847]]]])
 
     assert rel_error(out, correct_out) <= 1e-7
+
+
+def test_vanilla_rnn_forward():
+    N, T, D, H = 2, 3, 4, 5
+
+    x = np.linspace(-0.1, 0.3, num=N * T * D).reshape(N, T, D)
+    h0 = np.linspace(-0.3, 0.1, num=N * H).reshape(N, H)
+    Wx = np.linspace(-0.2, 0.4, num=D * H).reshape(D, H)
+    Wh = np.linspace(-0.4, 0.1, num=H * H).reshape(H, H)
+    b = np.linspace(-0.7, 0.1, num=H)
+
+    rnn = RNN(N, H)
+    rnn.weight_xh.data = Wx
+    rnn.weight_hh.data = Wh
+    rnn.bias.data = b
+    h = rnn(x, h0)
+    expected_h = np.asarray([
+        [
+            [-0.42070749, -0.27279261, -0.11074945, 0.05740409, 0.22236251],
+            [-0.39525808, -0.22554661, -0.0409454, 0.14649412, 0.32397316],
+            [-0.42305111, -0.24223728, -0.04287027, 0.15997045, 0.35014525],
+        ],
+        [
+            [-0.55857474, -0.39065825, -0.19198182, 0.02378408, 0.23735671],
+            [-0.27150199, -0.07088804, 0.13562939, 0.33099728, 0.50158768],
+            [-0.51014825, -0.30524429, -0.06755202, 0.17806392, 0.40333043]]])
+    print('h error: ', rel_error(expected_h, h))
 
 
 def test_maxpool2d_forward():

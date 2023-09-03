@@ -3,7 +3,7 @@ from abc import ABC
 
 import numpy as np
 
-from tools import kaiming_init
+from torchy.tools import kaiming_init
 from torchy.value import Value
 
 
@@ -24,7 +24,7 @@ class Layer(ABC):
         """
         pass
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Interface method that computes forward pass for layer.
 
@@ -33,8 +33,8 @@ class Layer(ABC):
         """
         pass
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
-        return self.forward(x)
+    def __call__(self, x: np.ndarray, *args) -> np.ndarray:
+        return self.forward(x, *args)
 
     def eval(self):
         """
@@ -82,7 +82,7 @@ class Linear(NnLayer):
         self.X = None
         self.out = None
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Computes forward pass for linear layer.
 
@@ -167,7 +167,7 @@ class Conv2d(NnLayer):
 
         self._padding_width = ((0, 0), (0, 0), (padding, padding), (padding, padding))
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Computes forward pass for convolutional layer.
 
@@ -264,6 +264,89 @@ class Conv2d(NnLayer):
         return d
 
 
+class RNN(NnLayer):
+    """
+    Vanilla recurrent neural network.
+    """
+    def __init__(self, n_input: int, n_output: int, bias: bool = True):
+        """
+        :param n_input: int - size of each input sample.
+        :param n_output: int - size of each output sample.
+        :param bias: bool - consider bias in layer computation or not
+        """
+        super(RNN, self).__init__()
+        self.dh = None
+        self.n_input = n_input
+        self.n_output = n_output
+
+        self.weight_xh = Value(kaiming_init(n_output) * np.random.randn(n_input, n_output))
+        self.weight_hh = Value(kaiming_init(n_output) * np.random.randn(n_output, n_output))
+        self.bias = Value(np.zeros(n_output)) if bias else None
+
+        self.hidden_states = None
+        self.x = None
+
+    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> np.ndarray:
+        """
+        :param x: numpy array (batch_size, sequence_length, input_size) - incoming data.
+        :param h0: numpy array (bach_size, hidden_size) - initial hidden state for the input sequence.
+        :return: numpy array (batch_size, sequence_length, hidden_size) - hidden states for all time steps.
+        """
+        self.x = x.copy()
+        batch_size, sequence_length, _ = x.shape
+
+        h = np.zeros(shape=(batch_size, self.n_output)) if h0 is None else np.copy(h0)
+        self.hidden_states = np.zeros(shape=(batch_size, sequence_length + 1, self.n_output))
+        self.hidden_states[:, 0, :] = h
+
+        for idx in range(sequence_length):
+            self.hidden_states[:, idx + 1, :] = np.tanh(
+                np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data) + self.bias.data # rework
+            )
+            h = self.hidden_states[:, idx + 1, :]
+
+        return self.hidden_states[:, 1:, :]
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to incoming data.
+
+        :param d_out: numpy array (batch_size, sequence_length, hidden_size) -
+        gradient of loss function with respect to output of forward pass.
+
+        :return: numpy array (batch_size, sequence_length, input_size) -
+        gradient with respect to x, the same shape as d_out.
+        """
+        dx = np.zeros_like(self.x)
+        _, sequence_length, _ = dx.shape
+
+        dh_prev = np.zeros_like(self.hidden_states[:, 0, :])
+        for idx in reversed(range(sequence_length)):
+            dh_curr = d_out[:, idx, :] + dh_prev
+            dh_raw = (1 - np.square(self.hidden_states[:, idx + 1, :])) * dh_curr
+
+            self.bias.grad += dh_raw.sum(axis=0)
+            self.weight_xh.grad += np.dot(self.x[:, idx, :].T, dh_raw)
+
+            self.weight_hh.grad += np.dot(self.hidden_states[:, idx, :].T, dh_raw)
+            dx[:, idx, :] = np.dot(dh_raw, self.weight_xh.data.T)
+
+            dh_prev = np.dot(dh_raw, self.weight_hh.data.T)
+
+        return dx
+
+    def params(self) -> dict[str, Value]:
+        d = {
+            "WH": self.weight_hh,
+            "WX": self.weight_xh
+        }
+
+        if self.bias is not None:
+            d["B"] = self.bias
+
+        return d
+
+
 class ReLU(Layer):
     """
     Rectified Linear Unit activation function.
@@ -274,7 +357,7 @@ class ReLU(Layer):
 
         self._mask = None
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Forward pass of ReLU layer
 
@@ -293,6 +376,36 @@ class ReLU(Layer):
         :return: numpy array (n-dimensional) - gradient with respect to x, the same shape as d_out.
         """
         return d_out * self._mask
+
+
+class Tanh(Layer):
+    """
+    Hyperbolic tangent activation function.
+    """
+
+    def __init__(self):
+        super(Tanh, self).__init__()
+        self.x = None
+
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
+        """
+        Forward pass of Tanh layer
+
+        :param x: numpy array (n-dimensional) - incoming data.
+        :return: numpy array (n-dimensional) - data after performing activation function on it, same shape
+        as x.
+        """
+        self.x = np.tanh(x)
+        return self.x
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to incoming data.
+
+        :param d_out: numpy array (n-dimensional) - gradient of loss function with respect to output of forward pass.
+        :return: numpy array (n-dimensional) - gradient with respect to x, the same shape as d_out.
+        """
+        return (1 - self.x ** 2) * d_out
 
 
 class _BatchNorm(NnLayer):
@@ -389,7 +502,7 @@ class BatchNorm1d(_BatchNorm):
     Batch Normalization for one-dimensional layers.
     """
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Forward pass of BatchNorm1d layer.
 
@@ -409,7 +522,7 @@ class BatchNorm1d(_BatchNorm):
 
 
 class BatchNorm2d(_BatchNorm):
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Forward pass of BatchNorm2d layer.
 
@@ -460,7 +573,7 @@ class MaxPool2d(Layer):
         self.padding = padding
         self._padding_width = ((0, 0), (0, 0), (padding, padding), (padding, padding))
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Forward pass of max pooling layer.
 
@@ -524,7 +637,7 @@ class Dropout(Layer):
 
         self.mask = None
 
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Performs forward pass for inverted dropout.
 
