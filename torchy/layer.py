@@ -268,6 +268,7 @@ class RNN(NnLayer):
     """
     Vanilla recurrent neural network.
     """
+
     def __init__(self, n_input: int, n_output: int, bias: bool = True):
         """
         :param n_input: int - size of each input sample.
@@ -286,26 +287,33 @@ class RNN(NnLayer):
         self.hidden_states = None
         self.x = None
 
-    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> np.ndarray:
+    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> (np.ndarray, np.ndarray):
         """
         :param x: numpy array (batch_size, sequence_length, input_size) - incoming data.
         :param h0: numpy array (bach_size, hidden_size) - initial hidden state for the input sequence.
-        :return: numpy array (batch_size, sequence_length, hidden_size) - hidden states for all time steps.
+        :return: tuple of two numpy arrays (output, hn):
+                output: numpy array (batch_size, sequence_length, hidden_size) - hidden states for all time steps.
+                hn: numpy array (batch_size, hidden_size) - final hidden state.
         """
         self.x = x.copy()
         batch_size, sequence_length, _ = x.shape
 
-        h = np.zeros(shape=(batch_size, self.n_output)) if h0 is None else np.copy(h0)
+        h = np.copy(h0) if h0 is not None else np.zeros(shape=(batch_size, self.n_output))
         self.hidden_states = np.zeros(shape=(batch_size, sequence_length + 1, self.n_output))
         self.hidden_states[:, 0, :] = h
 
         for idx in range(sequence_length):
-            self.hidden_states[:, idx + 1, :] = np.tanh(
-                np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data) + self.bias.data # rework
-            )
+            if self.bias is not None:
+                self.hidden_states[:, idx + 1, :] = np.tanh(
+                    np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data) + self.bias.data
+                )
+            else:
+                self.hidden_states[:, idx + 1, :] = np.tanh(
+                    np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data)
+                )
             h = self.hidden_states[:, idx + 1, :]
 
-        return self.hidden_states[:, 1:, :]
+        return self.hidden_states[:, 1:, :], self.hidden_states[:, -1, :]
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
@@ -325,7 +333,8 @@ class RNN(NnLayer):
             dh_curr = d_out[:, idx, :] + dh_prev
             dh_raw = (1 - np.square(self.hidden_states[:, idx + 1, :])) * dh_curr
 
-            self.bias.grad += dh_raw.sum(axis=0)
+            if self.bias is not None:
+                self.bias.grad += dh_raw.sum(axis=0)
             self.weight_xh.grad += np.dot(self.x[:, idx, :].T, dh_raw)
 
             self.weight_hh.grad += np.dot(self.hidden_states[:, idx, :].T, dh_raw)
@@ -336,6 +345,11 @@ class RNN(NnLayer):
         return dx
 
     def params(self) -> dict[str, Value]:
+        """
+        Collects all layer parameters into dictionary.
+
+        :return: dict[str, Value] - layer parameters.
+        """
         d = {
             "WH": self.weight_hh,
             "WX": self.weight_xh
@@ -343,6 +357,54 @@ class RNN(NnLayer):
 
         if self.bias is not None:
             d["B"] = self.bias
+
+        return d
+
+
+class Embedding(NnLayer):
+    """
+    Word embedding layer.
+    """
+
+    def __init__(self, num_embeddings: int, embedding_dim: int):
+        """
+        :param num_embeddings: int - dictionary size.
+        :param embedding_dim: int - embedding dimension for each word in dictionary.
+        """
+        super(Embedding, self).__init__()
+
+        self.weight = Value(np.random.randn(num_embeddings, embedding_dim))
+        self.x = None
+
+    # TODO: docstring
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
+        """
+        Computes forward pass for embedding layer.
+
+        :param x: numpy array (batch_size, in_channels, height, width) - incoming data.
+        :return: numpy array (batch_size, embedding_dim) - word embeddings
+        performing convolution operation on it.
+        """
+        self.x = np.copy(x)
+
+        return self.weight.data[self.x]
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        np.add.at(self.weight.grad, self.x, d_out)
+        return self.weight.grad
+
+    @classmethod
+    def from_pretrained(cls, weight: np.ndarray) -> 'Embedding':
+        num_embeddings, embedding_dim = weight.shape
+        embedding = cls(num_embeddings, embedding_dim)
+        embedding.weight = Value(weight)
+
+        return embedding
+
+    def params(self) -> dict[str, Value]:
+        d = {
+            "W": self.weight
+        }
 
         return d
 
