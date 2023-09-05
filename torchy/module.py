@@ -7,7 +7,7 @@ from torchy.tools import kaiming_init
 from torchy.value import Value
 
 
-class Layer(ABC):
+class Module(ABC):
     """
     Abstract class that represents any layer behavior and also used for type-hinting.
     """
@@ -48,23 +48,22 @@ class Layer(ABC):
         """
         self._train = True
 
-
-class NnLayer(Layer):
-    """
-    Another abstract class to represent layers that can hold parameters (weight & bias).
-    """
-
     def params(self) -> dict[str, Value]:
         """
-        Collects all layer parameters into dictionary.
+        Collects all module parameters into dictionary.
 
         :return: dict[str, Value] - layer parameters.
         """
+        p = {}
 
-        pass
+        for attr_name, attr_value in vars(self).items():
+            if isinstance(attr_value, Value):
+                p[attr_name] = attr_value
+
+        return p
 
 
-class Linear(NnLayer):
+class Linear(Module):
     """
     Fully-connected / Dense layer
     """
@@ -113,24 +112,8 @@ class Linear(NnLayer):
 
         return d_pred
 
-    def params(self) -> dict[str, Value]:
-        """
-        Collects all layer parameters into dictionary.
 
-        :return: dict[str, Value] - layer parameters.
-        """
-
-        d = {
-            "W": self.weight,
-        }
-
-        if self.bias is not None:
-            d["B"] = self.bias
-
-        return d
-
-
-class Conv2d(NnLayer):
+class Conv2d(Module):
     """
     Two-dimensional convolutional neural network layer
     """
@@ -248,26 +231,12 @@ class Conv2d(NnLayer):
 
         return d_x[:, :, self.padding:height + self.padding, self.padding:width + self.padding]
 
-    def params(self) -> dict[str, Value]:
-        """
-        Collects all layer parameters into dictionary.
 
-        :return: dict[str, Value] - layer parameters.
-        """
-        d = {
-            "W": self.weight,
-        }
-
-        if self.bias is not None:
-            d["B"] = self.bias
-
-        return d
-
-
-class RNN(NnLayer):
+class RNN(Module):
     """
     Vanilla recurrent neural network.
     """
+
     def __init__(self, n_input: int, n_output: int, bias: bool = True):
         """
         :param n_input: int - size of each input sample.
@@ -286,26 +255,33 @@ class RNN(NnLayer):
         self.hidden_states = None
         self.x = None
 
-    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> np.ndarray:
+    def forward(self, x: np.ndarray, h0: np.ndarray = None) -> (np.ndarray, np.ndarray):
         """
         :param x: numpy array (batch_size, sequence_length, input_size) - incoming data.
         :param h0: numpy array (bach_size, hidden_size) - initial hidden state for the input sequence.
-        :return: numpy array (batch_size, sequence_length, hidden_size) - hidden states for all time steps.
+        :return: tuple of two numpy arrays (output, hn):
+                output: numpy array (batch_size, sequence_length, hidden_size) - hidden states for all time steps.
+                hn: numpy array (batch_size, hidden_size) - final hidden state.
         """
         self.x = x.copy()
         batch_size, sequence_length, _ = x.shape
 
-        h = np.zeros(shape=(batch_size, self.n_output)) if h0 is None else np.copy(h0)
+        h = np.copy(h0) if h0 is not None else np.zeros(shape=(batch_size, self.n_output))
         self.hidden_states = np.zeros(shape=(batch_size, sequence_length + 1, self.n_output))
         self.hidden_states[:, 0, :] = h
 
         for idx in range(sequence_length):
-            self.hidden_states[:, idx + 1, :] = np.tanh(
-                np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data) + self.bias.data # rework
-            )
+            if self.bias is not None:
+                self.hidden_states[:, idx + 1, :] = np.tanh(
+                    np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data) + self.bias.data
+                )
+            else:
+                self.hidden_states[:, idx + 1, :] = np.tanh(
+                    np.dot(self.x[:, idx, :], self.weight_xh.data) + np.dot(h, self.weight_hh.data)
+                )
             h = self.hidden_states[:, idx + 1, :]
 
-        return self.hidden_states[:, 1:, :]
+        return self.hidden_states[:, 1:, :], self.hidden_states[:, -1, :]
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
@@ -325,7 +301,8 @@ class RNN(NnLayer):
             dh_curr = d_out[:, idx, :] + dh_prev
             dh_raw = (1 - np.square(self.hidden_states[:, idx + 1, :])) * dh_curr
 
-            self.bias.grad += dh_raw.sum(axis=0)
+            if self.bias is not None:
+                self.bias.grad += dh_raw.sum(axis=0)
             self.weight_xh.grad += np.dot(self.x[:, idx, :].T, dh_raw)
 
             self.weight_hh.grad += np.dot(self.hidden_states[:, idx, :].T, dh_raw)
@@ -335,19 +312,58 @@ class RNN(NnLayer):
 
         return dx
 
-    def params(self) -> dict[str, Value]:
-        d = {
-            "WH": self.weight_hh,
-            "WX": self.weight_xh
-        }
 
-        if self.bias is not None:
-            d["B"] = self.bias
+class Embedding(Module):
+    """
+    Word embedding layer.
+    """
 
-        return d
+    def __init__(self, num_embeddings: int, embedding_dim: int):
+        """
+        :param num_embeddings: int - dictionary size.
+        :param embedding_dim: int - embedding dimension for each word in dictionary.
+        """
+        super(Embedding, self).__init__()
 
+        self.weight = Value(np.random.randn(num_embeddings, embedding_dim))
+        self.x = None
 
-class ReLU(Layer):
+    def forward(self, x: np.ndarray, *args) -> np.ndarray:
+        """
+        Computes forward pass for embedding layer.
+
+        :param x: numpy array (batch_size, dictionary_size) - incoming data.
+        :return: numpy array (batch_size, sequence_length, embedding_dim) - word embeddings.
+        """
+        self.x = np.copy(x)
+
+        return self.weight.data[self.x]
+
+    def backward(self, d_out: np.ndarray) -> np.ndarray:
+        """
+        Computes backward pass with respect to incoming data.
+
+        :param d_out: numpy array (batch_size, sequence_length, embedding_dim) -
+        gradient of loss function with respect to output of forward pass.
+        """
+        np.add.at(self.weight.grad, self.x, d_out)
+
+    @classmethod
+    def from_pretrained(cls, weight: np.ndarray) -> 'Embedding':
+        """
+        Takes pretrained weight parameters and creates new instance of an embedding object
+        with pretrained weights.
+
+        :param weight: numpy array (num_embeddings, embedding_dim) - pretrained embedding weights.
+        :return: Embedding - embedding class instance with pretrained weights.
+        """
+        num_embeddings, embedding_dim = weight.shape
+        embedding = cls(num_embeddings, embedding_dim)
+        embedding.weight = Value(weight)
+
+        return embedding
+
+class ReLU(Module):
     """
     Rectified Linear Unit activation function.
     """
@@ -378,7 +394,7 @@ class ReLU(Layer):
         return d_out * self._mask
 
 
-class Tanh(Layer):
+class Tanh(Module):
     """
     Hyperbolic tangent activation function.
     """
@@ -408,7 +424,7 @@ class Tanh(Layer):
         return (1 - self.x ** 2) * d_out
 
 
-class _BatchNorm(NnLayer):
+class _BatchNorm(Module):
     """
     Base-like class for batch normalization
     """
@@ -483,19 +499,6 @@ class _BatchNorm(NnLayer):
         dx = dxhat * (1 / sqrt_var_eps) + dvar * (2 / batch_size) * (self._X - self._X_mean) + dmu / batch_size
         return dx
 
-    def params(self) -> dict[str, Value]:
-        """
-        Collects all layer parameters into dictionary.
-
-        :return: dict[str, Value] - layer parameters.
-        """
-        d = {
-            "gamma": self.gamma,
-            "beta": self.beta
-        }
-
-        return d
-
 
 class BatchNorm1d(_BatchNorm):
     """
@@ -554,7 +557,7 @@ class BatchNorm2d(_BatchNorm):
         return dx.reshape((batch_size, height, width, in_channels)).transpose((0, 3, 1, 2))
 
 
-class MaxPool2d(Layer):
+class MaxPool2d(Module):
     """
     Max pooling layer for 2-dimensional input (Convolutional Layer).
     """
@@ -621,7 +624,7 @@ class MaxPool2d(Layer):
         return d_pred
 
 
-class Dropout(Layer):
+class Dropout(Module):
     """
     Inverted dropout
     """

@@ -2,8 +2,7 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN
-from value import Value
+from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
 
 
 def test_linear_backward():
@@ -84,16 +83,16 @@ def test_rnn_vanilla_backward():
     rnn.weight_xh.data = Wx
     rnn.weight_hh.data = Wh
     rnn.bias.data = b
-    out = rnn(x, h0)
+    out, _ = rnn(x, h0)
 
     dout = np.random.randn(*out.shape)
 
     dx = rnn.backward(dout)
 
-    fx = lambda x: rnn(x, h0)
-    fWx = lambda Wx: rnn(x, h0)
-    fWh = lambda Wh: rnn(x, h0)
-    fb = lambda b: rnn(x, h0)
+    fx = lambda x: rnn(x, h0)[0]
+    fWx = lambda Wx: rnn(x, h0)[0]
+    fWh = lambda Wh: rnn(x, h0)[0]
+    fb = lambda b: rnn(x, h0)[0]
 
     dx_num = eval_numerical_gradient_array(fx, x, dout)
     dWx_num = eval_numerical_gradient_array(fWx, Wx, dout)
@@ -117,6 +116,20 @@ def test_maxpool2d_backward():
     dx = pool.backward(dout)
 
     assert rel_error(dx, dx_num) <= 1e-11
+
+
+# TODO
+def test_embedding_backward():
+    np.random.seed(231)
+
+    N, T, V, D = 50, 3, 5, 6
+    x = np.random.randint(V, size=(N, T))
+    W = np.random.randn(V, D)
+
+    emb = Embedding(V, D)
+    emb.weight.data = W
+
+    out = emb(x)
 
 
 def test_batchnorm1d_backward():

@@ -1,7 +1,7 @@
 import numpy as np
 
 from tests.utils import rel_error, print_mean_std
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN
+from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
 from torchy.value import Value
 
 
@@ -86,7 +86,7 @@ def test_vanilla_rnn_forward():
     rnn.weight_xh.data = Wx
     rnn.weight_hh.data = Wh
     rnn.bias.data = b
-    h = rnn(x, h0)
+    output, _ = rnn(x, h0)
     expected_h = np.asarray([
         [
             [-0.42070749, -0.27279261, -0.11074945, 0.05740409, 0.22236251],
@@ -97,8 +97,30 @@ def test_vanilla_rnn_forward():
             [-0.55857474, -0.39065825, -0.19198182, 0.02378408, 0.23735671],
             [-0.27150199, -0.07088804, 0.13562939, 0.33099728, 0.50158768],
             [-0.51014825, -0.30524429, -0.06755202, 0.17806392, 0.40333043]]])
-    print('h error: ', rel_error(expected_h, h))
+    print('h error: ', rel_error(expected_h, output))
 
+
+def test_embedding_forward():
+    N, T, V, D = 2, 4, 5, 3
+
+    x = np.asarray([[0, 3, 1, 2], [2, 1, 0, 3]])
+    W = np.linspace(0, 1, num=V * D).reshape(V, D)
+
+    emb = Embedding(V, D)
+    emb.weight.data = W
+
+    out = emb(x)
+    expected_out = np.asarray([
+        [[0., 0.07142857, 0.14285714],
+         [0.64285714, 0.71428571, 0.78571429],
+         [0.21428571, 0.28571429, 0.35714286],
+         [0.42857143, 0.5, 0.57142857]],
+        [[0.42857143, 0.5, 0.57142857],
+         [0.21428571, 0.28571429, 0.35714286],
+         [0., 0.07142857, 0.14285714],
+         [0.64285714, 0.71428571, 0.78571429]]])
+
+    print('out error: ', rel_error(expected_out, out))
 
 def test_maxpool2d_forward():
     x_shape = (2, 3, 4, 4)
