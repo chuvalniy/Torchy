@@ -2,25 +2,25 @@ import copy
 
 import numpy as np
 
-from torchy.layer import Layer, NnLayer
+from torchy.module import Module
 from torchy.value import Value
 
 
-class Sequential(Layer):
+class Sequential(Module):
     """
     Module for structuring neural network layers
     """
 
-    def __init__(self, *args: Layer):
+    def __init__(self, *args: Module):
         """
         :param args: Layer - collection of neural network layers that will be executed sequentially
         """
         super(Sequential, self).__init__()
 
-        self._layers: list[Layer] = []
+        self._layers: list[Module] = []
 
         for arg in args:
-            if not isinstance(arg, Layer):
+            if not isinstance(arg, Module):
                 print(type(arg))
                 raise Exception("Invalid argument for layer")
 
@@ -77,8 +77,7 @@ class Sequential(Layer):
         d = {}
 
         for idx, layer in enumerate(self._layers):
-            if isinstance(layer, NnLayer):
-                for param_name, param in layer.params().items():
-                    d[f"{param_name}_{idx}"] = param
+            for param_name, param in layer.params().items():
+                d[f"{param_name}_{idx}"] = param
 
         return d

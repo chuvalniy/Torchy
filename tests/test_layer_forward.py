@@ -1,7 +1,7 @@
 import numpy as np
 
 from tests.utils import rel_error, print_mean_std
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
+from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
 from torchy.value import Value
 
 

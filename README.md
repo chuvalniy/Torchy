@@ -18,16 +18,17 @@ I suggest you to take a look at [currently implemented stuff](https://github.com
 
 ## Example usage
 First we can define our model using Torchy with its PyTorch-like API
+
 ```python
-from torchy.sequential import Sequential # Same as nn.Sequential
-import torchy.layer as layer
+from torchy.sequential import Sequential  # Same as nn.Sequential
+import torchy.module as layer
 
 # Define 2-layer wtth 100 neurons hidden layer.
 model = Sequential(
-  layer.Linear(n_input=10, n_output=100),
-  layer.BatchNorm1d(n_output=100),
-  layer.ReLU(),
-  layer.Linear(n_input=100, n_output=2)
+    layer.Linear(n_input=10, n_output=100),
+    layer.BatchNorm1d(n_output=100),
+    layer.ReLU(),
+    layer.Linear(n_input=100, n_output=2)
 )
 ```
 

@@ -2,7 +2,7 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.layer import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
+from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
 
 
 def test_linear_backward():

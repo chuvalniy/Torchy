@@ -51,6 +51,7 @@ class DataLoader:
     def __iter__(self) -> "DataLoader":
         return self
 
+    # TODO: add sampler logic to __next__
     def __next__(self):
         if self._curr_index >= len(self.dataset):
             raise StopIteration
