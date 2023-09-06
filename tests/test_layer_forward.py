@@ -96,7 +96,8 @@ def test_vanilla_rnn_forward():
             [-0.55857474, -0.39065825, -0.19198182, 0.02378408, 0.23735671],
             [-0.27150199, -0.07088804, 0.13562939, 0.33099728, 0.50158768],
             [-0.51014825, -0.30524429, -0.06755202, 0.17806392, 0.40333043]]])
-    print('h error: ', rel_error(expected_h, output))
+
+    assert rel_error(expected_h, output) <= 1e-7
 
 
 def test_embedding_forward():
@@ -119,7 +120,7 @@ def test_embedding_forward():
          [0., 0.07142857, 0.14285714],
          [0.64285714, 0.71428571, 0.78571429]]])
 
-    print('out error: ', rel_error(expected_out, out))
+    assert rel_error(expected_out, out) <= 1e-7
 
 
 def test_maxpool2d_forward():
@@ -146,10 +147,6 @@ def test_maxpool2d_forward():
 
 
 def test_batchnorm1d_train_forward():
-    # Check the training-time forward pass by checking means and variances
-    # of features both before and after batch normalization
-
-    # Simulate the forward pass for a two-layer network.
     np.random.seed(231)
     N, D1, D2, D3 = 200, 50, 60, 3
     X = np.random.randn(N, D1)
@@ -163,7 +160,6 @@ def test_batchnorm1d_train_forward():
     gamma = np.ones((D3,))
     beta = np.zeros((D3,))
 
-    # Means should be close to zero and stds close to one.
     print('After batch normalization (gamma=1, beta=0)')
     batchnorm = BatchNorm1d(D3)
     batchnorm.gamma.data = gamma
@@ -171,16 +167,21 @@ def test_batchnorm1d_train_forward():
     a_norm = batchnorm(a)
     print_mean_std(a_norm, axis=0)
 
+    assert rel_error(a_norm.mean(axis=0), beta) <= 1e-8
+    assert rel_error(a_norm.std(axis=0), gamma) <= 1e-8
+
     gamma = np.asarray([1.0, 2.0, 3.0])
     beta = np.asarray([11.0, 12.0, 13.0])
 
-    # Now means should be close to beta and stds close to gamma.
     batchnorm = BatchNorm1d(D3)
     batchnorm.gamma.data = gamma
     batchnorm.beta.data = beta
     print('After batch normalization (gamma=', gamma, ', beta=', beta, ')')
     a_norm = batchnorm(a)
     print_mean_std(a_norm, axis=0)
+
+    assert rel_error(a_norm.mean(axis=0), beta) <= 1e-8
+    assert rel_error(a_norm.std(axis=0), gamma) <= 1e-8
 
 
 def test_batchnorm1d_test_forward():
@@ -240,6 +241,9 @@ def test_batchnorm2d_train_forward():
     print('  means: ', out.mean(axis=(0, 2, 3)))
     print('  stds: ', out.std(axis=(0, 2, 3)))
 
+    assert rel_error(out.mean(axis=(0, 2, 3)), beta) <= 1e-6
+    assert rel_error(out.std(axis=(0, 2, 3)), gamma) <= 1e-6
+
     # Means should be close to beta and stds close to gamma
     gamma, beta = np.asarray([3, 4, 5]), np.asarray([6, 7, 8])
     batch_norm = BatchNorm2d(n_output=C)
@@ -250,6 +254,9 @@ def test_batchnorm2d_train_forward():
     print('  shape: ', out.shape)
     print('  means: ', out.mean(axis=(0, 2, 3)))
     print('  stds: ', out.std(axis=(0, 2, 3)))
+
+    assert rel_error(out.mean(axis=(0, 2, 3)), beta) <= 1e-6
+    assert rel_error(out.std(axis=(0, 2, 3)), gamma) <= 1e-6
 
 
 def test_batchnorm2d_test_forward():
