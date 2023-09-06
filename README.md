@@ -20,8 +20,8 @@ I suggest you to take a look at [currently implemented stuff](https://github.com
 First we can define our model using Torchy with its PyTorch-like API
 
 ```python
-from torchy.sequential import Sequential  # Same as nn.Sequential
-import torchy.module as layer
+from nn.modules.sequential import Sequential  # Same as nn.Sequential
+import nn.modules.module as layer
 
 # Define 2-layer wtth 100 neurons hidden layer.
 model = Sequential(
@@ -33,10 +33,11 @@ model = Sequential(
 ```
 
 Next step is to create instances of optimizer and criterion for loss function and scheduler for fun
+
 ```python
-import torchy.loss as loss
-import torchy.optim as optim
-import torchy.scheduler as sched
+import nn.modules.loss as loss
+import optimizers.optim as optim
+import optimizers.scheduler as sched
 
 optimizer = optim.SGD(model.params(), lr=1e-3)
 criterion = loss.CrossEntropyLoss()

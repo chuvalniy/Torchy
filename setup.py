@@ -17,6 +17,7 @@ setup(
     packages=find_packages(),
     url="https://github.com/chuvalniy/Torchy",
     install_requires=['numpy', 'pytest'],
+    license="MIT",
     keywords=['python', 'neural net', 'from scratch', 'numpy', 'pytorch-like', 'cnn', 'dense'],
     classifiers=[
         "Development Status :: 1 - Planning",
