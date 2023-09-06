@@ -3,7 +3,7 @@ from abc import ABC
 
 import numpy as np
 
-from torchy.tools import kaiming_init
+import torchy.nn_init as init
 from torchy.value import Value
 
 
@@ -14,6 +14,7 @@ class Module(ABC):
 
     def __init__(self):
         self._train = True
+        self._params = {}
 
     def backward(self, d_out: np.ndarray) -> np.ndarray:
         """
@@ -48,19 +49,33 @@ class Module(ABC):
         """
         self._train = True
 
+    @property
     def params(self) -> dict[str, Value]:
         """
         Collects all module parameters into dictionary.
 
         :return: dict[str, Value] - layer parameters.
         """
-        p = {}
+        if self._params is None:
+            return {}
 
+        if len(self._params) == 0:
+            self._init_params()
+            if len(self._params) == 0:
+                self._params = None
+                return {}
+
+        return self._params
+
+    def _init_params(self):
+        """
+        Goes through module attributes and sets it as parameter if it is an instance of Value.
+
+        :return: None
+        """
         for attr_name, attr_value in vars(self).items():
             if isinstance(attr_value, Value):
-                p[attr_name] = attr_value
-
-        return p
+                self._params[attr_name] = attr_value
 
 
 class Linear(Module):
@@ -76,8 +91,8 @@ class Linear(Module):
         """
         super(Linear, self).__init__()
 
-        self.weight = Value(kaiming_init(n_input) * np.random.randn(n_input, n_output))
-        self.bias = Value(np.zeros(shape=(1, n_output))) if bias else None
+        self.weight: Value = init.kaiming_uniform(shape=(n_input, n_output))
+        self.bias: Value | None = init.kaiming_uniform(shape=(n_output,)) if bias else None
         self.X = None
         self.out = None
 
@@ -137,9 +152,8 @@ class Conv2d(Module):
         """
         super(Conv2d, self).__init__()
 
-        init_value = kaiming_init(in_channels * kernel_size * kernel_size)
-        self.weight = Value(init_value * np.random.randn(out_channels, in_channels, kernel_size, kernel_size))
-        self.bias = Value(np.zeros(out_channels)) if bias else None
+        self.weight: Value = init.kaiming_uniform(shape=(out_channels, in_channels, kernel_size, kernel_size))
+        self.bias: Value | None = init.kaiming_uniform(shape=(out_channels,)) if bias else None
         self.x = None
 
         self.in_channels = in_channels
@@ -237,20 +251,21 @@ class RNN(Module):
     Vanilla recurrent neural network.
     """
 
-    def __init__(self, n_input: int, n_output: int, bias: bool = True):
+    def __init__(self, n_input: int, n_output: int, bias: bool = True, nonlinearity: str = "tanh"):
         """
         :param n_input: int - size of each input sample.
         :param n_output: int - size of each output sample.
-        :param bias: bool - consider bias in layer computation or not
+        :param bias: bool - consider bias in layer computation or not.
+        :param nonlinearity: str - which nonlinearity to use in neural network.
         """
         super(RNN, self).__init__()
         self.dh = None
         self.n_input = n_input
         self.n_output = n_output
 
-        self.weight_xh = Value(kaiming_init(n_output) * np.random.randn(n_input, n_output))
-        self.weight_hh = Value(kaiming_init(n_output) * np.random.randn(n_output, n_output))
-        self.bias = Value(np.zeros(n_output)) if bias else None
+        self.weight_xh: Value = init.kaiming_uniform(shape=(n_input, n_output), nonlinearity=nonlinearity)
+        self.weight_hh: Value = init.kaiming_uniform(shape=(n_output, n_output), nonlinearity=nonlinearity)
+        self.bias: Value | None = init.kaiming_uniform(shape=(n_output,), nonlinearity=nonlinearity) if bias else None
 
         self.hidden_states = None
         self.x = None
@@ -325,7 +340,7 @@ class Embedding(Module):
         """
         super(Embedding, self).__init__()
 
-        self.weight = Value(np.random.randn(num_embeddings, embedding_dim))
+        self.weight = init.normal(shape=(num_embeddings, embedding_dim))
         self.x = None
 
     def forward(self, x: np.ndarray, *args) -> np.ndarray:
@@ -339,7 +354,7 @@ class Embedding(Module):
 
         return self.weight.data[self.x]
 
-    def backward(self, d_out: np.ndarray) -> np.ndarray:
+    def backward(self, d_out: np.ndarray) -> None:
         """
         Computes backward pass with respect to incoming data.
 
@@ -362,6 +377,7 @@ class Embedding(Module):
         embedding.weight = Value(weight)
 
         return embedding
+
 
 class ReLU(Module):
     """

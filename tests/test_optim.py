@@ -1,8 +1,8 @@
 import numpy as np
 
-from optim import MomentumSGD, RMSProp, Adam
+from torchy.optim import MomentumSGD, RMSProp, Adam
 from tests.utils import rel_error
-from value import Value
+from torchy.value import Value
 
 
 def test_sgd_momentum():
@@ -97,7 +97,6 @@ def test_adam():
         [0.67473684, 0.69421053, 0.71368421, 0.73315789, 0.75263158],
         [0.77210526, 0.79157895, 0.81105263, 0.83052632, 0.85]])
 
-    # You should see relative errors around e-7 or less
     assert rel_error(expected_next_w, optimizer._params['W'].data) <= 1e-6
     assert rel_error(expected_v, optimizer._accumulated['W']) <= 1e-8
     assert rel_error(expected_m, optimizer._velocities['W']) <= 1e-8

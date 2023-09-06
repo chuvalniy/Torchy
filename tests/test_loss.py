@@ -1,6 +1,6 @@
 import numpy as np
 
-from loss import CrossEntropyLoss
+from torchy.loss import CrossEntropyLoss
 from tests.gradient_check import eval_numerical_gradient
 from tests.utils import rel_error
 

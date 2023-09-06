@@ -30,7 +30,7 @@ class CrossEntropyLoss:
         :return: loss (float) - cross-entropy loss.
         :return grad (batch_size, n_output) - gradient of loss function with respect to softmax.
         """
-        batch_size = y_pred.shape[0]
+        batch_size = y_true.shape[0]
         num_classes = y_pred.shape[1]
 
         y_true_one_hot = np.identity(num_classes)[y_true.reshape(-1)]

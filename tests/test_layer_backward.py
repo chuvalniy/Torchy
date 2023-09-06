@@ -2,11 +2,10 @@ import numpy as np
 
 from tests.gradient_check import eval_numerical_gradient_array
 from tests.utils import rel_error
-from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
+from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN
 
 
 def test_linear_backward():
-    # Test the affine_backward function
     np.random.seed(231)
     x = np.random.randn(10, 2, 3)
     w = np.random.randn(6, 5)
@@ -99,10 +98,10 @@ def test_rnn_vanilla_backward():
     dWh_num = eval_numerical_gradient_array(fWh, Wh, dout)
     db_num = eval_numerical_gradient_array(fb, b, dout)
 
-    print('dx error: ', rel_error(dx_num, dx))
-    print('dWx error: ', rel_error(dWx_num, rnn.weight_xh.grad))
-    print('dWh error: ', rel_error(dWh_num, rnn.weight_hh.grad))
-    print('db error: ', rel_error(db_num, rnn.bias.grad))
+    assert rel_error(dx_num, dx) <= 1e-7
+    assert rel_error(dWx_num, rnn.weight_xh.grad) <= 1e-7
+    assert rel_error(dWh_num, rnn.weight_hh.grad) <= 1e-7
+    assert rel_error(db_num, rnn.bias.grad) <= 1e-7
 
 
 def test_maxpool2d_backward():
@@ -118,22 +117,7 @@ def test_maxpool2d_backward():
     assert rel_error(dx, dx_num) <= 1e-11
 
 
-# TODO
-def test_embedding_backward():
-    np.random.seed(231)
-
-    N, T, V, D = 50, 3, 5, 6
-    x = np.random.randint(V, size=(N, T))
-    W = np.random.randn(V, D)
-
-    emb = Embedding(V, D)
-    emb.weight.data = W
-
-    out = emb(x)
-
-
 def test_batchnorm1d_backward():
-    # Gradient check batchnorm backward pass.
     np.random.seed(231)
     N, D = 4, 5
     x = 5 * np.random.randn(N, D) + 12
@@ -156,7 +140,6 @@ def test_batchnorm1d_backward():
     batchnorm(x)
     dx = batchnorm.backward(dout)
 
-    # You should expect to see relative errors between 1e-13 and 1e-8.
     assert rel_error(dx_num, dx) < 1e-8
     assert rel_error(da_num, batchnorm.gamma.grad) < 1e-11
     assert rel_error(db_num, batchnorm.beta.grad) < 1e-11
@@ -200,5 +183,4 @@ def test_dropout_backward():
     dx = dropout.backward(dout)
     dx_num = eval_numerical_gradient_array(lambda xx: Dropout(0.2, seed=123)(xx), x, dout)
 
-    # Error should be around e-10 or less.
     assert rel_error(dx, dx_num) <= 1e-10
