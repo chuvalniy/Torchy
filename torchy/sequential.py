@@ -26,7 +26,7 @@ class Sequential(Module):
 
             self._layers.append(arg)
 
-    def __call__(self, x: np.ndarray) -> np.ndarray:
+    def __call__(self, x: np.ndarray, *args) -> np.ndarray:
         """
         Iterates over a list of neural network layers and
         sequentially performs a forward pass depending on the mode state
@@ -67,6 +67,7 @@ class Sequential(Module):
         for layer in self._layers:
             layer.train()
 
+    @property
     def params(self) -> dict[str, Value]:
         """
         Passes through every layer of the neural network and gathers their
@@ -74,10 +75,9 @@ class Sequential(Module):
 
         :return: dict (param_name: str, param: Param)
         """
-        d = {}
 
         for idx, layer in enumerate(self._layers):
-            for param_name, param in layer.params().items():
-                d[f"{param_name}_{idx}"] = param
+            for param_name, param in layer.params.items():
+                self._params[f"{param_name}_{idx}"] = param
 
-        return d
+        return self._params

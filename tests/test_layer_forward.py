@@ -2,7 +2,6 @@ import numpy as np
 
 from tests.utils import rel_error, print_mean_std
 from torchy.module import Conv2d, MaxPool2d, BatchNorm2d, Dropout, BatchNorm1d, Linear, ReLU, RNN, Embedding
-from torchy.value import Value
 
 
 def test_linear_forward():
@@ -121,6 +120,7 @@ def test_embedding_forward():
          [0.64285714, 0.71428571, 0.78571429]]])
 
     print('out error: ', rel_error(expected_out, out))
+
 
 def test_maxpool2d_forward():
     x_shape = (2, 3, 4, 4)
