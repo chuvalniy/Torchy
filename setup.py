@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.2.3.3'
+VERSION = '0.3.4.3'
 DESCRIPTION = 'NumPy based neural network package with PyTorch-like API'
 
 with open("README.md", "r") as fn:
@@ -16,7 +16,8 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     url="https://github.com/chuvalniy/Torchy",
-    install_requires=['numpy', 'scikit-learn', 'pytest'],
+    install_requires=['numpy', 'pytest'],
+    license="MIT",
     keywords=['python', 'neural net', 'from scratch', 'numpy', 'pytorch-like', 'cnn', 'dense'],
     classifiers=[
         "Development Status :: 1 - Planning",
