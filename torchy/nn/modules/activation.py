@@ -48,8 +48,7 @@ class Tanh(Module):
         Forward pass of Tanh layer
 
         :param x: numpy array (n-dimensional) - incoming data.
-        :return: numpy array (n-dimensional) - data after performing activation function on it, same shape
-        as x.
+        :return: numpy array (n-dimensional) - data after performing activation function on it, same shape as x.
         """
         self.x = np.tanh(x)
         return self.x
@@ -62,3 +61,15 @@ class Tanh(Module):
         :return: numpy array (n-dimensional) - gradient with respect to x, the same shape as d_out.
         """
         return (1 - self.x ** 2) * d_out
+
+
+def sigmoid(x):
+    """A numerically stable version of the logistic sigmoid function."""
+    pos_mask = x >= 0
+    neg_mask = x < 0
+    z = np.zeros_like(x)
+    z[pos_mask] = np.exp(-x[pos_mask])
+    z[neg_mask] = np.exp(x[neg_mask])
+    top = np.ones_like(x)
+    top[neg_mask] = z[neg_mask]
+    return top / (1 + z)
