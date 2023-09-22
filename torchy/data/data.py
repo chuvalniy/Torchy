@@ -3,6 +3,8 @@ from typing import Sized
 import numpy as np
 
 
+# TODO: tests, docstring
+
 class Dataset:
     def __getitem__(self, idx: int):
         raise NotImplemented("Subclasses of Dataset should implement __getitem__")

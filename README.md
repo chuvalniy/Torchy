@@ -45,15 +45,16 @@ scheduler = sched.StepLR(optimizer, step_size=10)
 ```
 
 I won't cover whole training process like loops and stuff, just show you main differences while training
+
 ```python
 ...
 predictions = model(X)  # Nothing changed
-        
+
 loss, grad = criterion(predictions, y)  # Now return tuple of (loss, grad) instead of only loss 
-        
-optimizer.zero_grad() 
+
+optimizer.zero_grad()
 model.backward(grad)  # Call backward on model object and pass gradient from loss as argument
-optimizer.step()
+optimizer.forward_step()
 ```
 
 
