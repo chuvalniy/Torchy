@@ -20,28 +20,25 @@ I suggest you to take a look at [currently implemented stuff](https://github.com
 First we can define our model using Torchy with its PyTorch-like API
 
 ```python
-from nn.modules.sequential import Sequential  # Same as nn.Sequential
-import nn.modules.module as layer
+import torchy.nn as nn  # Same as torch.nn
 
 # Define 2-layer wtth 100 neurons hidden layer.
-model = Sequential(
-    layer.Linear(n_input=10, n_output=100),
-    layer.BatchNorm1d(n_output=100),
-    layer.ReLU(),
-    layer.Linear(n_input=100, n_output=2)
+model = nn.Sequential(
+    nn.Linear(n_input=10, n_output=100),
+    nn.BatchNorm1d(n_output=100),
+    nn.ReLU(),
+    nn.Linear(n_input=100, n_output=2)
 )
 ```
 
 Next step is to create instances of optimizer and criterion for loss function and scheduler for fun
 
 ```python
-import nn.modules.loss as loss
-import optimizers.optim as optim
-import optimizers.scheduler as sched
+import torchy.optimizers as optim
 
 optimizer = optim.SGD(model.params(), lr=1e-3)
-criterion = loss.CrossEntropyLoss()
-scheduler = sched.StepLR(optimizer, step_size=10)
+criterion = nn.CrossEntropyLoss()
+scheduler = optim.StepLR(optimizer, step_size=10)
 ```
 
 I won't cover whole training process like loops and stuff, just show you main differences while training
@@ -57,14 +54,22 @@ model.backward(grad)  # Call backward on model object and pass gradient from los
 optimizer.forward_step()
 ```
 
+## Testing
+Every neural network module is provided with unit test that verify correctness of forward and backward passes.
 
+Execute the following command in your project directory to run the tests.
+```python
+pytest -v
+```
 ## Demonstration
 The [demo notebook](https://github.com/chuvalniy/Torchy/blob/main/torchy-demo.ipynb) showcases what Torchy currently can do.
 
 ## Roadmap
-There is still a lot of work to be done, but here are the main points that will be completed soon
-- Docstring every entity & add type hinting
-- Add evaluation & inference for model 
+It seems to me that I've completed all the modules that I wanted to code, but there are still some unfinished points, here are some of them:
+- Dataset, DataLoader & Sampler;
+- Transformer;
+- Fix regularization;
+- Autograd (as new git branch)
 
 ## Resources
 The opportunity to create such a project was given to me thanks to these people
