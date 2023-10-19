@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.3.4.3'
+VERSION = '0.3.5.3'
 DESCRIPTION = 'NumPy based neural network package with PyTorch-like API'
 
 with open("README.md", "r") as fn:
