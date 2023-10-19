@@ -62,7 +62,7 @@ Execute the following command in your project directory to run the tests.
 pytest -v
 ```
 ## Demonstration
-The [demo notebook](https://github.com/chuvalniy/Torchy/blob/main/torchy-demo.ipynb) showcases what Torchy currently can do.
+The [demo notebook](https://github.com/chuvalniy/Torchy/blob/main/demos/torchy-demo-1.ipynb) showcases what Torchy currently can do.
 
 ## Roadmap
 It seems to me that I've completed all the modules that I wanted to code, but there are still some unfinished points, here are some of them:
