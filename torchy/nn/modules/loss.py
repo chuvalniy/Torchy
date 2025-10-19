@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 
 
@@ -21,14 +23,13 @@ class CrossEntropyLoss:
     Computes the cross-entropy loss between input logits and the target
     """
 
-    def __call__(self, y_pred: np.ndarray, y_true: np.ndarray) -> (float, np.ndarray):
-        """
+    def __call__(self, y_pred: np.ndarray, y_true: np.ndarray) -> Tuple[float, np.ndarray]:
+        """Forward and backward pass for Cross Entropy Loss.
 
         :param y_pred: numpy array (batch_size, n_output) - predictions computed by neural network with a range
         of values from (-infinity, +infinity).
         :param y_true: numpy array (batch_size) - indices of ground truth values.
-        :return: loss (float) - cross-entropy loss.
-        :return grad (batch_size, n_output) - gradient of loss function with respect to softmax.
+        :return: loss (float) - KL divergence loss with its gradients.
         """
         batch_size = y_true.shape[0]
         num_classes = y_pred.shape[1]
@@ -41,3 +42,26 @@ class CrossEntropyLoss:
         grad = (logits - y_true_one_hot) / batch_size
 
         return loss, grad
+
+
+class KLDivLoss:
+    def __init__(self, eps: float = 1e-7):
+        self.eps = eps
+
+    def __call__(self, y_pred: np.ndarray, y_true: np.ndarray) -> Tuple[float, np.ndarray]:
+        """Forward and backward pass for KL Divergence.
+
+        :param y_pred: numpy array - predictions computed by neural network with a range
+        :param y_true: numpy array - target distribution
+        :return: loss (float) - KL divergence loss with its gradients.
+        """
+        assert y_true.shape == y_pred.shape, "Invalid shape for y_pred and y_true"
+
+        batch_size = y_true.shape[0]
+
+        loss = np.sum(
+            y_true * np.log((y_true + self.eps) / (y_pred + self.eps))
+        )
+        grad = -y_true / (y_pred + self.eps)
+
+        return loss / batch_size, grad / batch_size
